@@ -1,14 +1,24 @@
 import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
+import { BottomNav, type AppTab } from './components/BottomNav';
 import { CaptureArea } from './components/CaptureArea';
 import { ResultSection } from './components/ResultSection';
 import { HistoryList } from './components/HistoryList';
 import { LabelModal } from './components/LabelModal';
+import { FastApiConfigModal } from './components/FastApiConfigModal';
+import { AlertIcon, CloseIcon, WifiOffIcon } from './components/CustomIcons';
 import type { FruitClassification, BackendConfig } from './types';
 import { classifyFruitImage, DEFAULT_BACKEND_CONFIG } from './services/api';
 
 const LOCAL_STORAGE_HISTORY_KEY = 'sacred_fruit_history_v1';
 const LOCAL_STORAGE_CONFIG_KEY = 'sacred_fruit_config_v1';
+
+function scrollToResult(delay: number) {
+  setTimeout(() => {
+    if (window.matchMedia('(min-width: 1024px)').matches) return;
+    document.getElementById('result-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, delay);
+}
 
 export function App() {
   const [config, setConfig] = useState<BackendConfig>(() => {
@@ -23,8 +33,12 @@ export function App() {
   const [lotId, setLotId] = useState<string>(() => `LOTE-${Math.floor(1000 + Math.random() * 9000)}`);
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [pendingImage, setPendingImage] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
   const [currentResult, setCurrentResult] = useState<FruitClassification | null>(null);
   const [resetCaptureSignal, setResetCaptureSignal] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<AppTab>('escanear');
+  const [showConfig, setShowConfig] = useState<boolean>(false);
 
   const [history, setHistory] = useState<FruitClassification[]>(() => {
     try {
@@ -75,13 +89,18 @@ export function App() {
     }
   }, [config]);
 
+  useEffect(() => {
+    if (!scanError) return;
+    const timer = setTimeout(() => setScanError(null), 8000);
+    return () => clearTimeout(timer);
+  }, [scanError]);
+
   const handleCapture = async (imageDataUrl: string, batchLotId: string) => {
     setIsProcessing(true);
+    setPendingImage(imageDataUrl);
+    setScanError(null);
 
-    // Scroll inmediato hacia la zona de resultados para mostrar el spinner de procesamiento
-    setTimeout(() => {
-      document.getElementById('result-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
+    scrollToResult(50);
 
     try {
       const classification = await classifyFruitImage(imageDataUrl, batchLotId, config);
@@ -89,13 +108,13 @@ export function App() {
       setHistory((prev) => [classification, ...prev]);
       setResetCaptureSignal((prev) => prev + 1);
 
-      setTimeout(() => {
-        document.getElementById('result-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+      scrollToResult(100);
     } catch (err) {
       console.error('Inference error:', err);
+      setScanError(err instanceof Error ? err.message : 'No se pudo analizar la imagen.');
     } finally {
       setIsProcessing(false);
+      setPendingImage(null);
     }
   };
 
@@ -108,14 +127,8 @@ export function App() {
   const handleSelectScan = (selectedScan: FruitClassification) => {
     setCurrentResult(selectedScan);
     setResetCaptureSignal((prev) => prev + 1);
-
-    // Render diferido para asegurar que el DOM de result-section esté renderizado antes de hacer scroll
-    setTimeout(() => {
-      const element = document.getElementById('result-section');
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 50);
+    setActiveTab('escanear');
+    scrollToResult(100);
   };
 
   const handleClearHistory = () => {
@@ -124,38 +137,88 @@ export function App() {
     setResetCaptureSignal((prev) => prev + 1);
   };
 
+  const handleNavChange = (tab: AppTab) => {
+    if (tab === 'ajustes') {
+      setShowConfig(true);
+      return;
+    }
+    setActiveTab(tab);
+    window.scrollTo({ top: 0 });
+  };
+
+  const hasResultArea = isProcessing || currentResult !== null;
+
   return (
-    <div className="min-h-screen flex flex-col font-sans text-black antialiased selection:bg-black selection:text-emerald-300">
-      {!config.isOnline && (
-        <div className="bg-red-600 text-white font-medium text-xs px-4 py-2 text-center border-b-2 border-black">
-          Modo Offline activado (PWA Caché) • Los resultados se guardarán localmente
+    <div className="min-h-dvh flex flex-col font-sans text-tinta antialiased">
+      <Header
+        historyCount={history.length}
+        isOnline={config.isOnline}
+        useMock={config.useMock}
+        onOpenSettings={() => setShowConfig(true)}
+      />
+
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 lg:px-8 pt-5 pb-28 lg:pt-8 lg:pb-12">
+        {!config.isOnline && (
+          <div
+            role="status"
+            className="flex items-start gap-3 mb-5 rounded-xl border border-miel-300 bg-miel-100 px-4 py-3 text-sm text-miel-900 animate-aparecer"
+          >
+            <WifiOffIcon size={18} className="mt-0.5" />
+            <p>
+              <span className="font-semibold">Sin conexión.</span> La app sigue funcionando y los resultados se guardan en este dispositivo.
+            </p>
+          </div>
+        )}
+
+        <div className="lg:grid lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:gap-8 lg:items-start">
+          <div className={activeTab === 'escanear' ? 'block' : 'hidden lg:block'}>
+            <CaptureArea
+              onCapture={handleCapture}
+              isProcessing={isProcessing}
+              currentLotId={lotId}
+              onChangeLotId={setLotId}
+              resetSignal={resetCaptureSignal}
+            />
+          </div>
+
+          <div
+            className={`${activeTab === 'escanear' ? 'block' : 'hidden lg:block'} ${hasResultArea ? 'mt-5' : ''} lg:mt-0 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto barra-fina`}
+          >
+            <ResultSection
+              result={currentResult}
+              isProcessing={isProcessing}
+              pendingImage={pendingImage}
+              onGenerateLabel={(resultToPrint) => setActiveLabelResult(resultToPrint)}
+              onNewCapture={handleNewCapture}
+            />
+          </div>
+        </div>
+
+        <div className={`${activeTab === 'historial' ? 'block' : 'hidden lg:block'} lg:mt-12`}>
+          <HistoryList
+            history={history}
+            onSelectScan={handleSelectScan}
+            onClearHistory={handleClearHistory}
+          />
+        </div>
+      </main>
+
+      {scanError && (
+        <div
+          role="alert"
+          className="fixed z-40 left-4 right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] lg:left-auto lg:right-8 lg:bottom-8 lg:w-96 flex items-start gap-3 rounded-xl border border-terracota-300 bg-terracota-100 p-4 text-terracota-900 shadow-hoja-lg animate-aparecer"
+        >
+          <AlertIcon size={22} className="mt-0.5" />
+          <p className="flex-1 text-sm font-medium">{scanError}</p>
+          <button
+            onClick={() => setScanError(null)}
+            aria-label="Cerrar aviso"
+            className="w-10 h-10 -m-2 flex items-center justify-center rounded-full hover:bg-terracota-300/50"
+          >
+            <CloseIcon size={20} />
+          </button>
         </div>
       )}
-
-      <Header historyCount={history.length} />
-
-      <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-6">
-        <CaptureArea
-          onCapture={handleCapture}
-          isProcessing={isProcessing}
-          currentLotId={lotId}
-          onChangeLotId={setLotId}
-          resetSignal={resetCaptureSignal}
-        />
-
-        <ResultSection
-          result={currentResult}
-          isProcessing={isProcessing}
-          onGenerateLabel={(resultToPrint) => setActiveLabelResult(resultToPrint)}
-          onNewCapture={handleNewCapture}
-        />
-
-        <HistoryList
-          history={history}
-          onSelectScan={handleSelectScan}
-          onClearHistory={handleClearHistory}
-        />
-      </main>
 
       {activeLabelResult && (
         <LabelModal
@@ -164,12 +227,26 @@ export function App() {
         />
       )}
 
-      <footer className="w-full bg-slate-950 text-white border-t-2 border-slate-800 py-4 px-4 text-center">
-        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400 font-medium">
-          <p>© 2026 Sacred Fruit PWA • Control de calidad y clasificación</p>
-          <p className="text-slate-300">Impresión térmica de etiquetas integrada</p>
+      {showConfig && (
+        <FastApiConfigModal
+          config={config}
+          onSave={setConfig}
+          onClose={() => setShowConfig(false)}
+        />
+      )}
+
+      <footer className="hidden lg:block border-t border-linea-suave py-4 px-8 text-xs text-tinta-tenue">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <p>Sacred Fruit · control de calidad de frutas</p>
+          <p>Iconos de Flaticon</p>
         </div>
       </footer>
+
+      <BottomNav
+        active={showConfig ? 'ajustes' : activeTab}
+        historyCount={history.length}
+        onChange={handleNavChange}
+      />
     </div>
   );
 }

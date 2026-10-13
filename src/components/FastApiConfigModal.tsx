@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { BackendConfig } from '../types';
-import { CloseIcon, CheckIcon, AlertIcon } from './CustomIcons';
+import { CloseIcon, CheckIcon, AlertIcon, PlugIcon, SparklesIcon } from './CustomIcons';
+import { Sheet } from './Sheet';
 
 interface FastApiConfigModalProps {
   config: BackendConfig;
@@ -14,23 +15,22 @@ export const FastApiConfigModal: React.FC<FastApiConfigModalProps> = ({ config, 
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [testMsg, setTestMsg] = useState<string>('');
 
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
-
   const handleTestConnection = async () => {
     setTestStatus('testing');
-    setTestMsg('Conectando a FastAPI...');
+    setTestMsg('Conectando al backend...');
     try {
-      await fetch(`${apiUrl.replace(/\/$/, '')}/docs`, { method: 'HEAD', mode: 'no-cors' });
+      const res = await fetch(`${apiUrl.replace(/\/$/, '')}/health`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json().catch(() => null);
       setTestStatus('success');
-      setTestMsg(`Servidor alcanzado en ${apiUrl}`);
+      setTestMsg(
+        data?.classes
+          ? `Conectado. Modelo cargado con ${data.classes.length} clases.`
+          : `Servidor alcanzado en ${apiUrl}`
+      );
     } catch {
       setTestStatus('error');
-      setTestMsg(`No se pudo conectar a ${apiUrl}. Verifica que FastAPI esté corriendo.`);
+      setTestMsg(`No se pudo conectar a ${apiUrl}. Verifica que el backend esté corriendo.`);
     }
   };
 
@@ -44,88 +44,101 @@ export const FastApiConfigModal: React.FC<FastApiConfigModalProps> = ({ config, 
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
-      <div className="bg-white border-4 border-black rounded-3xl w-full max-w-md p-6 relative shadow-2xl">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 bg-black text-white p-1.5 rounded-full border-2 border-black hover:bg-slate-800"
-        >
-          <CloseIcon size={18} />
-        </button>
-
-        <h3 className="text-xl font-brand font-black text-black mb-1">Configuración FastAPI</h3>
-        <p className="text-xs font-medium text-slate-500 mb-4 border-b-2 border-slate-200 pb-2">
-          Integración del modelo de inteligencia artificial
-        </p>
-
-        <div className="space-y-4 text-xs mb-6">
+    <Sheet onClose={onClose} labelledBy="config-title">
+      <div className="overflow-y-auto min-h-0 p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-3 mb-5">
           <div>
-            <label className="block font-bold text-black mb-1">URL del Backend (FastAPI):</label>
+            <h3 id="config-title" className="font-serif text-2xl font-semibold text-hoja-900 leading-tight">Ajustes</h3>
+            <p className="text-sm text-tinta-suave mt-1">Conecta el modelo best.pt o trabaja en modo demo.</p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="w-11 h-11 -mt-1 -mr-2 flex items-center justify-center rounded-full text-tinta-suave hover:bg-papel-hondo"
+          >
+            <CloseIcon size={24} />
+          </button>
+        </div>
+
+        <div className="space-y-5">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={useMock}
+            onClick={() => setUseMock((v) => !v)}
+            className="w-full flex items-center gap-3 text-left rounded-xl border border-linea bg-papel-hondo/60 p-3.5 min-h-16"
+          >
+            <span className="w-10 h-10 rounded-lg bg-miel-100 text-miel-700 flex items-center justify-center shrink-0">
+              <SparklesIcon size={20} />
+            </span>
+            <span className="flex-1">
+              <span className="block text-sm font-semibold text-tinta">Modo demo</span>
+              <span className="block text-xs text-tinta-suave">Resultados simulados, sin servidor ni modelo.</span>
+            </span>
+            <span className={`relative w-12 h-7 rounded-full shrink-0 transition-colors ${useMock ? 'bg-hoja-700' : 'bg-linea'}`}>
+              <span className={`absolute top-0.5 w-6 h-6 rounded-full bg-papel-claro shadow transition-[left] duration-200 ${useMock ? 'left-5.5' : 'left-0.5'}`} />
+            </span>
+          </button>
+
+          <div className={useMock ? 'opacity-50' : ''}>
+            <label htmlFor="api-url" className="flex items-center gap-2 text-sm font-semibold text-tinta mb-1.5">
+              <PlugIcon size={16} />
+              Dirección del backend
+            </label>
             <input
-              type="text"
+              id="api-url"
+              type="url"
+              inputMode="url"
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
               placeholder="http://localhost:8000"
-              className="w-full font-mono font-bold text-sm bg-slate-100 border-2 border-black rounded-2xl p-2.5 text-black focus:bg-emerald-50 focus:outline-none"
+              className="w-full min-h-12 font-mono text-base bg-papel border border-linea rounded-xl px-3.5 text-tinta focus:outline-none"
             />
-            <span className="text-[10px] text-slate-500 font-bold block mt-1">
-              Endpoint esperado: POST /api/v1/classify (multipart/form-data)
+            <span className="text-xs text-tinta-tenue block mt-1.5">
+              Se envía la foto a <span className="font-mono">POST /predict</span> (multipart/form-data).
             </span>
-          </div>
-
-          <div className="border-2 border-black rounded-2xl p-3 bg-slate-100">
-            <label className="flex items-center gap-2 font-bold text-black cursor-pointer">
-              <input
-                type="checkbox"
-                checked={useMock}
-                onChange={(e) => setUseMock(e.target.checked)}
-                className="w-4 h-4 accent-black border-2 border-black rounded"
-              />
-              Forzar modo demo simulado
-            </label>
-            <p className="text-[10px] text-slate-600 font-medium mt-1">
-              Activa la simulación local de inferencia sin requerir servidor activo.
-            </p>
           </div>
 
           <button
             onClick={handleTestConnection}
             disabled={testStatus === 'testing'}
-            className="w-full bg-slate-200 text-black border-2 border-black rounded-2xl p-2.5 font-bold hover:bg-slate-300 transition-colors"
+            className="w-full min-h-12 border border-hoja-700/50 text-hoja-800 hover:bg-salvia-100 active:bg-salvia-200 rounded-xl font-semibold text-sm transition-colors disabled:opacity-60"
           >
-            {testStatus === 'testing' ? 'Probando conexión...' : 'Probar ping a API'}
+            {testStatus === 'testing' ? 'Probando conexión...' : 'Probar conexión'}
           </button>
 
           {testStatus === 'success' && (
-            <div className="bg-emerald-700 text-white border-2 border-black rounded-2xl p-2.5 font-bold flex items-center gap-2">
-              <CheckIcon size={16} />
+            <div role="status" className="bg-lima-100 text-lima-900 border border-lima-300 rounded-xl p-3 text-sm font-medium flex items-start gap-2">
+              <CheckIcon size={18} className="mt-0.5" />
               <span>{testMsg}</span>
             </div>
           )}
 
           {testStatus === 'error' && (
-            <div className="bg-red-700 text-white border-2 border-black rounded-2xl p-2.5 font-bold flex items-center gap-2">
-              <AlertIcon size={16} />
+            <div role="alert" className="bg-terracota-100 text-terracota-900 border border-terracota-300 rounded-xl p-3 text-sm font-medium flex items-start gap-2">
+              <AlertIcon size={18} className="mt-0.5" />
               <span>{testMsg}</span>
             </div>
           )}
         </div>
 
-        <div className="flex gap-2 pt-2 border-t-2 border-black">
-          <button
-            onClick={handleSave}
-            className="flex-1 bg-black text-white hover:bg-slate-900 border-2 border-black rounded-2xl py-2.5 font-bold text-sm transition-colors"
-          >
-            Guardar
-          </button>
-          <button
-            onClick={onClose}
-            className="bg-white text-black hover:bg-slate-200 border-2 border-black rounded-2xl py-2.5 px-4 font-bold text-sm transition-colors"
-          >
-            Cancelar
-          </button>
-        </div>
+        <p className="text-[11px] text-tinta-tenue mt-6">Iconos de Flaticon (UIcons).</p>
       </div>
-    </div>
+
+      <div className="flex gap-3 px-5 sm:px-6 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-linea shrink-0">
+        <button
+          onClick={onClose}
+          className="flex-1 min-h-12 border border-linea text-tinta hover:bg-papel-hondo rounded-xl font-semibold text-sm transition-colors"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={handleSave}
+          className="flex-1 min-h-12 bg-hoja-800 text-papel-claro hover:bg-hoja-700 active:bg-hoja-950 rounded-xl font-semibold text-sm transition-colors"
+        >
+          Guardar
+        </button>
+      </div>
+    </Sheet>
   );
 };

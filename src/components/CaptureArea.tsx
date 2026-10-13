@@ -1,5 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { CameraIcon, UploadIcon, SwitchCameraIcon, CloseIcon, CameraOffIcon, AnalyzeIcon } from './CustomIcons';
+import {
+  CameraIcon,
+  UploadIcon,
+  SwitchCameraIcon,
+  CloseIcon,
+  CameraOffIcon,
+  AnalyzeIcon,
+  ImagesIcon,
+  TagIcon,
+} from './CustomIcons';
+import { CornerGuides } from './CornerGuides';
+import { SAMPLE_PHOTOS } from '../services/api';
 
 interface CaptureAreaProps {
   onCapture: (imageDataUrl: string, lotId: string) => void;
@@ -8,25 +19,6 @@ interface CaptureAreaProps {
   onChangeLotId: (newLotId: string) => void;
   resetSignal?: number;
 }
-
-const SAMPLE_PHOTOS = [
-  {
-    name: 'Banano Moteado',
-    url: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    name: 'Manzana Roja',
-    url: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    name: 'Naranja Fresca',
-    url: 'https://images.unsplash.com/photo-1547514701-42782101795e?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    name: 'Aguacate Hass',
-    url: 'https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?auto=format&fit=crop&w=600&q=80',
-  },
-];
 
 export const CaptureArea: React.FC<CaptureAreaProps> = ({
   onCapture,
@@ -69,10 +61,10 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
 
     try {
       const constraints: MediaStreamConstraints = {
-        video: { 
-          facingMode: facingMode, 
-          width: { ideal: 1920 }, 
-          height: { ideal: 1080 } 
+        video: {
+          facingMode: facingMode,
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
       };
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -169,8 +161,13 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
     e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
+  const segmentClass = (active: boolean) =>
+    `flex-1 min-h-11 flex items-center justify-center gap-2 px-4 rounded-lg text-sm font-semibold transition-colors ${
+      active ? 'bg-hoja-800 text-papel-claro shadow-sm' : 'text-tinta-suave hover:bg-papel-claro/70'
+    }`;
+
   return (
-    <section className="bg-white border-2 border-slate-900 rounded-3xl p-5 sm:p-7 mb-6 shadow-lg">
+    <section className="bg-papel-claro border border-linea rounded-2xl shadow-hoja p-4 sm:p-6 animate-aparecer">
       <input
         ref={nativeCameraInputRef}
         type="file"
@@ -188,39 +185,42 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
         className="hidden"
       />
 
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5 border-b-2 border-slate-200 pb-4">
-        <div className="flex border-2 border-slate-900 rounded-2xl overflow-hidden bg-slate-100 p-1">
-          <button
-            onClick={() => setMode('camera')}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all ${
-              mode === 'camera'
-                ? 'bg-black text-white shadow'
-                : 'bg-transparent text-slate-700 hover:text-black'
-            }`}
-          >
+      <div className="flex items-end justify-between gap-3 mb-4">
+        <div>
+          <p className="font-mono text-[11px] text-tinta-tenue mb-0.5">Paso 1 de 2</p>
+          <h2 className="font-serif text-2xl font-semibold text-hoja-900 leading-tight">Escanear un lote</h2>
+        </div>
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div role="tablist" aria-label="Origen de la foto" className="flex gap-1 p-1 rounded-xl bg-papel-hondo sm:w-72 shrink-0">
+          <button role="tab" aria-selected={mode === 'camera'} onClick={() => setMode('camera')} className={segmentClass(mode === 'camera')}>
             <CameraIcon size={18} />
             Cámara
           </button>
           <button
+            role="tab"
+            aria-selected={mode === 'upload'}
             onClick={() => {
               setMode('upload');
               setIsCameraOpen(false);
             }}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all ${
-              mode === 'upload'
-                ? 'bg-black text-white shadow'
-                : 'bg-transparent text-slate-700 hover:text-black'
-            }`}
+            className={segmentClass(mode === 'upload')}
           >
             <UploadIcon size={18} />
             Subir foto
           </button>
         </div>
 
-        <div className="flex items-center gap-2 bg-emerald-200 border-2 border-slate-900 rounded-2xl px-3.5 py-2 font-mono shadow-sm">
-          <label htmlFor="lot-input" className="text-xs font-bold text-slate-950 whitespace-nowrap">
-            Lote Nº:
-          </label>
+        <label
+          htmlFor="lot-input"
+          className="flex-1 min-h-14 flex items-center gap-3 pl-3 pr-3 py-2 rounded-lg border border-dashed border-tinta-tenue/50 bg-miel-100/60 cursor-text"
+        >
+          <span aria-hidden="true" className="w-3 h-3 rounded-full bg-papel border border-tinta-tenue/60 shrink-0" />
+          <span className="flex items-center gap-1.5 text-xs text-tinta-suave font-medium shrink-0">
+            <TagIcon size={14} />
+            Lote
+          </span>
           <input
             id="lot-input"
             ref={lotInputRef}
@@ -229,99 +229,129 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
             onFocus={handleLotFocus}
             onChange={(e) => onChangeLotId(e.target.value)}
             placeholder="LOTE-001"
-            className="w-full sm:w-36 font-mono font-bold text-base sm:text-sm bg-white border border-slate-900 rounded-xl px-2.5 py-1 text-black focus:outline-none focus:ring-2 focus:ring-black uppercase transition-all"
+            autoCapitalize="characters"
+            className="w-full min-w-0 bg-transparent font-mono font-semibold text-lg text-tinta uppercase tracking-wide focus:outline-none placeholder:text-tinta-tenue/60"
           />
-        </div>
+        </label>
       </div>
 
       {previewImage ? (
-        <div className="relative w-full rounded-3xl border-3 border-slate-900 bg-slate-950 overflow-hidden mb-5 shadow-lg flex items-center justify-center p-2">
+        <div className="relative w-full rounded-xl bg-hoja-950 overflow-hidden mb-4 flex items-center justify-center">
           <img
             src={previewImage}
             alt="Muestra capturada"
-            className="w-full h-auto max-h-[75vh] object-contain rounded-2xl"
+            className="w-full h-auto max-h-[62vh] object-contain"
           />
+          <CornerGuides />
           <button
             onClick={handleResetPreview}
             disabled={isProcessing}
             aria-label="Volver a tomar foto"
             title="Volver a tomar foto"
-            className="absolute top-4 right-4 w-11 h-11 bg-slate-950/80 hover:bg-red-600 text-white rounded-full border-2 border-white/80 shadow-xl backdrop-blur-md flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+            className="absolute top-3 right-3 w-11 h-11 bg-hoja-950/75 hover:bg-hoja-950 active:bg-black text-papel-claro rounded-full flex items-center justify-center transition-colors disabled:opacity-50"
           >
             <CameraOffIcon size={20} />
           </button>
         </div>
       ) : (
-        <div className="relative w-full aspect-4/3 sm:aspect-16/9 bg-slate-950 rounded-3xl border-3 border-slate-900 flex items-center justify-center overflow-hidden mb-5 shadow-inner">
+        <div className="relative w-full aspect-4/3 lg:aspect-16/10 bg-hoja-950 rounded-xl overflow-hidden mb-4">
+          <CornerGuides />
           {mode === 'camera' ? (
-            <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
-              <div className="w-20 h-20 rounded-full bg-emerald-200 border-3 border-black flex items-center justify-center mb-4 shadow-lg">
-                <CameraIcon className="w-10 h-10 text-slate-950" />
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+              <div className="w-16 h-16 rounded-full bg-lima-300 text-hoja-950 flex items-center justify-center mb-4">
+                <CameraIcon size={30} />
               </div>
-              <h3 className="text-white font-black text-xl mb-1">Cámara lista</h3>
-              <p className="text-slate-400 text-xs sm:text-sm max-w-sm mb-5">
-                Presiona el botón para abrir el visor en pantalla completa y capturar la fruta.
+              <h3 className="font-serif text-xl font-semibold text-papel-claro mb-1">Cámara lista</h3>
+              <p className="text-salvia-300 text-sm max-w-xs mb-5">
+                Abre el visor y encuadra el lote con buena luz. La fruta debe verse completa.
               </p>
               <button
                 onClick={handleOpenCameraModal}
                 disabled={isProcessing}
-                className="bg-emerald-300 hover:bg-emerald-200 text-slate-950 font-brand font-black text-lg px-8 py-3.5 rounded-2xl border-3 border-black shadow-lg transition-transform hover:scale-105 active:scale-95 flex items-center gap-2"
+                className="min-h-12 bg-lima-300 hover:bg-lima-100 active:bg-lima-500 text-hoja-950 font-semibold text-base px-7 rounded-xl flex items-center gap-2 transition-colors disabled:opacity-50"
               >
-                <CameraIcon size={22} />
+                <CameraIcon size={20} />
                 Tomar foto
               </button>
             </div>
           ) : (
-            <div
+            <button
               onClick={() => fileInputRef.current?.click()}
-              className="w-full h-full bg-slate-50 flex flex-col items-center justify-center p-6 cursor-pointer border-4 border-dashed border-slate-300 hover:border-slate-800 transition-colors text-center rounded-3xl"
+              className="absolute inset-0 w-full flex flex-col items-center justify-center p-6 text-center hover:bg-hoja-900/60 transition-colors"
             >
-              <UploadIcon className="w-14 h-14 text-slate-800 mb-3" />
-              <p className="text-black font-bold text-base mb-1">Haz clic para seleccionar una foto</p>
-              <p className="text-slate-500 text-xs">Soporta formato JPG, PNG o WEBP</p>
-            </div>
+              <div className="w-16 h-16 rounded-full bg-salvia-200 text-hoja-900 flex items-center justify-center mb-4">
+                <UploadIcon size={30} />
+              </div>
+              <span className="font-serif text-xl font-semibold text-papel-claro mb-1">Elegir una foto</span>
+              <span className="text-salvia-300 text-sm">Toca para buscar en tu galería. JPG, PNG o WEBP.</span>
+            </button>
           )}
         </div>
       )}
 
       {previewImage && (
-        <button
-          onClick={() => onCapture(previewImage, currentLotId)}
-          disabled={isProcessing}
-          className={`w-full py-4 px-6 rounded-2xl border-3 border-black font-brand font-black text-xl sm:text-2xl tracking-wide flex items-center justify-center gap-3 transition-all hover:scale-[1.01] active:scale-[0.99] shadow-md ${
-            isProcessing
-              ? 'bg-slate-300 text-slate-700 cursor-not-allowed border-slate-400'
-              : 'bg-black text-white hover:bg-slate-900 active:bg-slate-950'
-          }`}
-        >
-          <AnalyzeIcon className="w-7 h-7" />
-          {isProcessing ? 'Analizando...' : 'Analizar'}
-        </button>
+        <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:static z-20 mb-4">
+          <button
+            onClick={() => onCapture(previewImage, currentLotId)}
+            disabled={isProcessing}
+            className={`relative w-full min-h-14 px-6 rounded-xl overflow-hidden font-semibold text-lg flex items-center justify-center gap-3 shadow-hoja-lg transition-colors ${
+              isProcessing
+                ? 'bg-hoja-700 text-papel-claro cursor-wait'
+                : 'bg-hoja-800 text-papel-claro hover:bg-hoja-700 active:bg-hoja-950'
+            }`}
+          >
+            {isProcessing ? (
+              <>
+                <span className="w-5 h-5 rounded-full border-2 border-papel-claro/30 border-t-lima-300 animate-spin" />
+                Analizando el lote
+                <span aria-hidden="true" className="absolute bottom-0 left-0 h-1 w-full bg-lima-300/70 animate-latir" />
+              </>
+            ) : (
+              <>
+                <AnalyzeIcon size={22} />
+                Analizar
+              </>
+            )}
+          </button>
+        </div>
       )}
 
-      <div className="mt-5 pt-4 border-t-2 border-slate-200">
-        <p className="text-xs font-bold text-slate-700 mb-2.5">
-          Muestras rápidas de prueba:
-        </p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-          {SAMPLE_PHOTOS.map((sample, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSelectSample(sample.url)}
-              disabled={isProcessing}
-              className="flex items-center gap-2.5 p-2 rounded-2xl border-2 border-slate-900 bg-slate-50 hover:bg-emerald-200 text-left transition-all hover:shadow-sm"
-            >
-              <img src={sample.url} alt={sample.name} className="w-9 h-9 object-cover rounded-xl border border-black" />
-              <span className="text-xs font-bold text-black leading-tight truncate">
-                {sample.name}
-              </span>
-            </button>
-          ))}
+      <div className="pt-4 border-t border-dashed border-linea">
+        <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-hoja-800">
+          <ImagesIcon size={16} />
+          Muestras de prueba
+        </div>
+        <div className="flex gap-3 overflow-x-auto snap-x snap-proximity scroll-px-4 sm:scroll-px-6 sin-barra -mx-4 px-4 sm:-mx-6 sm:px-6 pb-1">
+          {SAMPLE_PHOTOS.map((sample) => {
+            const selected = previewImage === sample.imageUrl;
+            return (
+              <button
+                key={sample.name}
+                onClick={() => handleSelectSample(sample.imageUrl)}
+                disabled={isProcessing}
+                aria-pressed={selected}
+                className="snap-start shrink-0 w-28 text-center disabled:opacity-60"
+              >
+                <span className={`block w-28 h-28 rounded-xl overflow-hidden bg-papel-hondo border-2 transition-colors ${selected ? 'border-hoja-800' : 'border-transparent'}`}>
+                  <img
+                    src={sample.imageUrl}
+                    alt={sample.name}
+                    loading="lazy"
+                    className="block w-full h-full object-cover"
+                  />
+                </span>
+                <span className={`block mt-2 px-0.5 text-xs leading-snug ${selected ? 'font-bold text-hoja-900' : 'text-tinta-suave'}`}>
+                  {sample.name}
+                </span>
+              </button>
+            );
+          })}
+          <span aria-hidden="true" className="shrink-0 w-1" />
         </div>
       </div>
 
       {isCameraOpen && (
-        <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between overflow-hidden animate-fade-in touch-none select-none">
+        <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between overflow-hidden animate-fundido touch-none select-none">
           <video
             ref={videoRef}
             playsInline
@@ -331,26 +361,25 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
           />
 
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 p-6">
-            <div className="w-64 h-64 sm:w-80 sm:h-80 border-2 border-white/60 border-dashed rounded-3xl relative">
-              <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-emerald-300 rounded-tl-2xl" />
-              <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-emerald-300 rounded-tr-2xl" />
-              <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-emerald-300 rounded-bl-2xl" />
-              <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-emerald-300 rounded-br-2xl" />
+            <div className="w-64 h-64 sm:w-80 sm:h-80 relative">
+              <CornerGuides inset="inset-0" size="w-10 h-10" />
             </div>
           </div>
 
-          <div className="relative z-20 p-5 pt-8 sm:pt-6 flex items-center justify-between bg-gradient-to-b from-black/80 via-black/40 to-transparent">
+          <div className="relative z-20 px-5 pb-5 pt-[calc(1.25rem+env(safe-area-inset-top))] flex items-center justify-between bg-linear-to-b from-black/70 to-transparent">
             <button
               onClick={handleCloseCameraModal}
-              className="w-11 h-11 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/30 flex items-center justify-center hover:bg-black/90 active:scale-90 transition-transform shadow-lg"
+              className="w-12 h-12 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
               aria-label="Cerrar cámara"
             >
-              <CloseIcon size={22} />
+              <CloseIcon size={24} />
             </button>
+
+            <p className="text-sm text-white/85 font-medium">Encuadra la fruta dentro de las guías</p>
 
             <button
               onClick={toggleFacingMode}
-              className="w-11 h-11 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/30 flex items-center justify-center hover:bg-black/90 active:scale-90 transition-transform shadow-lg"
+              className="w-12 h-12 rounded-full bg-black/55 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
               aria-label="Rotar cámara"
               title="Rotar cámara"
             >
@@ -359,18 +388,18 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
           </div>
 
           {cameraError && (
-            <div className="relative z-30 m-6 p-5 bg-black/90 border-2 border-emerald-300 rounded-3xl text-center backdrop-blur-md">
-              <p className="text-white text-xs sm:text-sm mb-4 font-medium">{cameraError}</p>
+            <div className="relative z-30 m-6 p-5 bg-hoja-950/95 border border-lima-300/60 rounded-xl text-center">
+              <p className="text-papel-claro text-sm mb-4">{cameraError}</p>
               <div className="flex gap-2 justify-center">
                 <button
                   onClick={() => nativeCameraInputRef.current?.click()}
-                  className="bg-emerald-300 text-black font-bold text-xs px-4 py-2.5 rounded-xl border border-black"
+                  className="min-h-11 bg-lima-300 text-hoja-950 font-semibold text-sm px-4 rounded-lg"
                 >
                   Abrir foto nativa
                 </button>
                 <button
                   onClick={handleCloseCameraModal}
-                  className="bg-white text-black font-bold text-xs px-4 py-2.5 rounded-xl"
+                  className="min-h-11 bg-papel-claro text-hoja-950 font-semibold text-sm px-4 rounded-lg"
                 >
                   Cancelar
                 </button>
@@ -378,13 +407,13 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
             </div>
           )}
 
-          <div className="relative z-20 pb-10 pt-6 px-6 flex items-center justify-center bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+          <div className="relative z-20 pb-[calc(2rem+env(safe-area-inset-bottom))] pt-8 px-6 flex items-center justify-center bg-linear-to-t from-black/75 to-transparent">
             <button
               onClick={handleTakeSnapshot}
-              className="w-20 h-20 sm:w-22 sm:h-22 rounded-full border-4 border-white p-1.5 flex items-center justify-center cursor-pointer transition-transform active:scale-90 hover:scale-105 shadow-2xl focus:outline-none"
+              className="w-20 h-20 rounded-full border-4 border-white p-1.5 flex items-center justify-center cursor-pointer focus:outline-none"
               aria-label="Capturar fotografía"
             >
-              <div className="w-full h-full rounded-full bg-white active:bg-slate-300 shadow-inner" />
+              <div className="w-full h-full rounded-full bg-white active:bg-lima-300 transition-colors" />
             </button>
           </div>
         </div>
