@@ -58,3 +58,8 @@ coverage/
 *.bak
 *.swp
 
+
+# Backend (Python)
+backend/.venv/
+__pycache__/
+*.pyc
