@@ -1,5 +1,17 @@
 export type FruitQualityState = 'VERDE' | 'MADURO' | 'SOBREPASADO';
 
+export type FruitKey = 'banana' | 'mango' | 'naranja' | 'tomate';
+
+export type DetectionKind = 'fruta' | 'defecto';
+
+export interface Detection {
+  kind: DetectionKind;
+  label: string;
+  confidence: number;
+  box: [number, number, number, number];
+  polygon?: [number, number][];
+}
+
 export interface FruitClassification {
   id: string;
   timestamp: string;
@@ -14,6 +26,8 @@ export interface FruitClassification {
   imageUrl: string;
   caliber: string;
   estimatedWeight: string;
+  detections?: Detection[];
+  source?: 'modelo' | 'demo';
 }
 
 export interface BackendConfig {
@@ -24,11 +38,8 @@ export interface BackendConfig {
 
 export interface SampleFruitPreset {
   name: string;
+  fruit: FruitKey;
   state: FruitQualityState;
   imperfection: number;
-  details: string;
-  shelfLife: string;
-  action: string;
-  caliber: string;
   imageUrl: string;
 }
