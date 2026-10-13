@@ -1,20 +1,139 @@
 @import "tailwindcss";
 
+@theme {
+  --font-serif: Georgia, 'Times New Roman', serif;
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: 'Courier New', Courier, monospace;
+
+  --color-papel: #f4eddb;
+  --color-papel-claro: #fbf7ec;
+  --color-papel-hondo: #eae1c8;
+  --color-linea: #d6caa9;
+  --color-linea-suave: #e4dac0;
+
+  --color-tinta: #1b2a21;
+  --color-tinta-suave: #44554a;
+  --color-tinta-tenue: #5c6c60;
+
+  --color-hoja-950: #0e2217;
+  --color-hoja-900: #153020;
+  --color-hoja-800: #1d4430;
+  --color-hoja-700: #275a3f;
+  --color-hoja-600: #337050;
+  --color-hoja-500: #4a8a66;
+
+  --color-salvia-100: #e3eadb;
+  --color-salvia-200: #ccd9c4;
+  --color-salvia-300: #b0c4a9;
+  --color-salvia-400: #8da88a;
+  --color-salvia-500: #6f8e6e;
+
+  --color-lima-100: #eef3c4;
+  --color-lima-300: #d3e27a;
+  --color-lima-500: #a8be33;
+  --color-lima-700: #5d6e11;
+  --color-lima-900: #3a4609;
+
+  --color-miel-100: #fbeabc;
+  --color-miel-300: #f3cd68;
+  --color-miel-500: #e0a11a;
+  --color-miel-700: #8a5806;
+  --color-miel-900: #5a3801;
+
+  --color-terracota-100: #f5dacd;
+  --color-terracota-300: #e3a78b;
+  --color-terracota-500: #b8532d;
+  --color-terracota-700: #82331a;
+  --color-terracota-900: #55200f;
+
+  --shadow-hoja: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 1px 2px rgb(29 68 48 / 0.08), 0 10px 24px -14px rgb(29 68 48 / 0.35);
+  --shadow-hoja-lg: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 2px 4px rgb(29 68 48 / 0.08), 0 22px 44px -22px rgb(14 34 23 / 0.5);
+  --shadow-barra: 0 -8px 24px -12px rgb(14 34 23 / 0.28);
+
+  --animate-aparecer: aparecer 0.28s ease-out backwards;
+  --animate-fundido: fundido 0.2s ease-out backwards;
+  --animate-hoja: hoja-subir 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  --animate-dialogo: dialogo 0.22s ease-out backwards;
+  --animate-escaneo: escaneo 1.9s ease-in-out infinite alternate;
+  --animate-latir: latir 1.4s ease-in-out infinite;
+
+  @keyframes aparecer {
+    from { opacity: 0; transform: translateY(8px); }
+  }
+  @keyframes fundido {
+    from { opacity: 0; }
+  }
+  @keyframes hoja-subir {
+    from { transform: translateY(100%); }
+  }
+  @keyframes dialogo {
+    from { opacity: 0; transform: translateY(12px); }
+  }
+  @keyframes escaneo {
+    from { top: 4%; }
+    to { top: 96%; }
+  }
+  @keyframes latir {
+    50% { opacity: 0.45; }
+  }
+}
+
 @layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
   body {
-    background-color: #F8FAFC;
-    color: #0F172A;
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--color-papel);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.15 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    color: var(--color-tinta);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-    /* Transparent black fruit silhouettes repeating pattern in background */
-    background-image: url("data:image/svg+xml,%3Csvg width='140' height='140' viewBox='0 0 140 140' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3C!-- Apple --%3E%3Cpath d='M35 15c-3 0-5 2-5 5 0 8 7 14 7 14s7-6 7-14c0-3-2-5-5-5-2 0-3.5 1-4 2-.5-1-2-2-4-2z' fill='%23000000' fill-opacity='0.06'/%3E%3C!-- Orange --%3E%3Ccircle cx='105' cy='35' r='12' fill='%23000000' fill-opacity='0.06'/%3E%3Cpath d='M105 20v3' stroke='%23000000' stroke-opacity='0.06' stroke-width='2' stroke-linecap='round'/%3E%3C!-- Banana --%3E%3Cpath d='M25 80c10 0 20 10 20 20 0 2-2 3-3 2-8-6-15-10-22-12-2 0-2-3 0-4 1.5-3 3.5-6 5-6z' fill='%23000000' fill-opacity='0.06'/%3E%3C!-- Strawberry --%3E%3Cpath d='M95 85c-6 0-11 5-11 12 0 8 11 16 11 16s11-8 11-16c0-7-5-12-11-12z' fill='%23000000' fill-opacity='0.06'/%3E%3C/svg%3E");
-    background-repeat: repeat;
+    overscroll-behavior-y: none;
   }
-  h1, h2, h3, .font-brand {
-    font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  h1, h2, h3, .font-serif {
+    font-family: var(--font-serif);
   }
-  .font-mono {
-    font-family: 'Space Mono', monospace;
+  button, [role="button"], a {
+    touch-action: manipulation;
+  }
+  button:focus, a:focus, input:focus, select:focus, button:focus-visible, a:focus-visible {
+    outline: none;
+  }
+  ::selection {
+    background: var(--color-lima-300);
+    color: var(--color-lima-900);
+  }
+}
+
+@layer utilities {
+  .pb-seguro {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+  .pt-seguro {
+    padding-top: env(safe-area-inset-top);
+  }
+  .sin-barra {
+    scrollbar-width: none;
+  }
+  .sin-barra::-webkit-scrollbar {
+    display: none;
+  }
+  .barra-fina {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-salvia-300) transparent;
+  }
+  .trama {
+    background-image: repeating-linear-gradient(135deg, transparent 0 5px, rgb(255 255 255 / 0.5) 5px 6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

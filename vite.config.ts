@@ -9,23 +9,26 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'sacred-apple.png', 'favicon.png'],
+      includeAssets: ['favicon.svg', 'favicon.png', 'sacred-apple.png', 'sacred-apple-192.png'],
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,woff2}'],
+      },
       manifest: {
         name: 'Sacred Fruit - Clasificación de Calidad',
         short_name: 'SacredFruit',
         description: 'Control de calidad e inspección de frutas en tiempo real',
-        theme_color: '#000000',
-        background_color: '#FFFFFF',
+        theme_color: '#153020',
+        background_color: '#F5EFE0',
         display: 'standalone',
         icons: [
           {
             src: 'favicon.svg',
             sizes: 'any',
             type: 'image/svg+xml',
-            purpose: 'any maskable'
+            purpose: 'any'
           },
           {
-            src: 'sacred-apple.png',
+            src: 'sacred-apple-192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any'
@@ -34,7 +37,7 @@ export default defineConfig({
             src: 'sacred-apple.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any'
+            purpose: 'any maskable'
           }
         ]
       }
