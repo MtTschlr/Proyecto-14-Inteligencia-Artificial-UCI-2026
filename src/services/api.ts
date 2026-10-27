@@ -16,32 +16,41 @@ import {
 } from './fruitRules';
 
 export const DEFAULT_BACKEND_CONFIG: BackendConfig = {
-  apiUrl: 'http://localhost:8000',
-  useMock: true,
+  apiUrl: '/api',
+  useMock: false,
   isOnline: typeof navigator !== 'undefined' ? navigator.onLine : true,
 };
 
-const unsplash = (id: string) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=600&q=80`;
+const unsplash = (id: string, w = 600) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=80`;
+const sample = (name: string, fruit: FruitKey, state: FruitQualityState, imperfection: number, id: string): SampleFruitPreset => ({
+  name,
+  fruit,
+  state,
+  imperfection,
+  imageUrl: unsplash(id),
+  thumbUrl: unsplash(id, 240),
+});
 
 // Muestras rápidas: cada foto lleva su resultado de demo para que coincida con lo que se ve.
 export const SAMPLE_PHOTOS: SampleFruitPreset[] = [
-  { name: 'Banana en racimo', fruit: 'banana', state: 'MADURO', imperfection: 3.2, imageUrl: unsplash('photo-1571771894821-ce9b6c11b08e') },
-  { name: 'Mango amarillo', fruit: 'mango', state: 'MADURO', imperfection: 4.6, imageUrl: unsplash('photo-1553279768-865429fa0078') },
-  { name: 'Mango surtido', fruit: 'mango', state: 'VERDE', imperfection: 2.1, imageUrl: unsplash('photo-1601493700631-2b16ec4b4716') },
-  { name: 'Naranja', fruit: 'naranja', state: 'MADURO', imperfection: 2.6, imageUrl: unsplash('photo-1547514701-42782101795e') },
-  { name: 'Tomate en rama', fruit: 'tomate', state: 'MADURO', imperfection: 1.8, imageUrl: unsplash('photo-1546094096-0df4bcaaa337') },
+  sample('Banana en racimo', 'banana', 'MADURO', 3.2, 'photo-1571771894821-ce9b6c11b08e'),
+  sample('Mango amarillo', 'mango', 'MADURO', 4.6, 'photo-1553279768-865429fa0078'),
+  sample('Mango surtido', 'mango', 'VERDE', 2.1, 'photo-1601493700631-2b16ec4b4716'),
+  sample('Naranja', 'naranja', 'MADURO', 2.6, 'photo-1547514701-42782101795e'),
+  sample('Tomate en rama', 'tomate', 'MADURO', 1.8, 'photo-1546094096-0df4bcaaa337'),
 ];
 
-// Resultados de demo para fotos que no son muestras: cubren las frutas y estados del modelo.
-const EXTRA_PRESETS: Pick<SampleFruitPreset, 'fruit' | 'state' | 'imperfection'>[] = [
-  { fruit: 'banana', state: 'VERDE', imperfection: 0.9 },
-  { fruit: 'banana', state: 'SOBREPASADO', imperfection: 17.4 },
-  { fruit: 'mango', state: 'SOBREPASADO', imperfection: 14.6 },
-  { fruit: 'naranja', state: 'VERDE', imperfection: 1.2 },
-  { fruit: 'naranja', state: 'SOBREPASADO', imperfection: 9.8 },
-  { fruit: 'tomate', state: 'VERDE', imperfection: 0.7 },
-  { fruit: 'tomate', state: 'SOBREPASADO', imperfection: 13.1 },
-];
+export class ScanError extends Error {
+  hint?: string;
+  constructor(message: string, hint?: string) {
+    super(message);
+    this.name = 'ScanError';
+    this.hint = hint;
+  }
+}
+
+const REQUEST_TIMEOUT_MS = 30000;
+const UPLOAD_MAX_SIDE = 1280;
 
 export function compressImageForStorage(dataUrl: string, maxWidth = 600, quality = 0.8): Promise<string> {
   return new Promise((resolve) => {
@@ -188,63 +197,78 @@ function buildDemoResult(
   };
 }
 
+async function imageToUploadBlob(src: string): Promise<Blob> {
+  const resized = await compressImageForStorage(src, UPLOAD_MAX_SIDE, 0.9);
+  if (resized.startsWith('data:image')) return (await fetch(resized)).blob();
+  return (await fetch(src)).blob();
+}
+
 export async function classifyFruitImage(
   imageBlobOrUrl: string,
   lotId: string,
   config: BackendConfig
 ): Promise<FruitClassification> {
   const finalLotId = lotId.trim() || `LOTE-${Math.floor(100000 + Math.random() * 900000)}`;
-
-  // Comprimir imagen para optimizar uso de memoria y localStorage
   const storedImageUrl = await compressImageForStorage(imageBlobOrUrl);
 
-  if (!config.useMock && config.apiUrl) {
-    let res: Response | null = null;
-    try {
-      const formData = new FormData();
-      const blob = await (await fetch(imageBlobOrUrl)).blob();
-      formData.append('file', blob, 'capture.jpg');
-      formData.append('lot_id', finalLotId);
-
-      res = await fetch(`${config.apiUrl.replace(/\/$/, '')}/predict`, {
-        method: 'POST',
-        body: formData,
-      });
-    } catch (err) {
-      console.warn('FastAPI backend connection failed, falling back to demo mode:', err);
+  if (config.useMock) {
+    const sample = SAMPLE_PHOTOS.find((s) => s.imageUrl === imageBlobOrUrl);
+    if (!sample) {
+      throw new ScanError(
+        'En modo demo solo se pueden analizar las muestras de prueba.',
+        'Desactivá el modo demo en Ajustes para analizar tus fotos con el modelo.'
+      );
     }
-
-    if (res && res.status === 422) {
-      const body = await res.json().catch(() => null);
-      throw new Error(body?.detail || 'El modelo no detectó ninguna fruta en la imagen.');
-    }
-
-    if (res && res.ok) {
-      const data = await res.json();
-      return {
-        id: data.id || `SCAN-${Date.now()}`,
-        timestamp: formatTimestamp(new Date()),
-        lotId: data.lot_id || finalLotId,
-        fruitType: data.fruit_type || 'Fruta detectada',
-        state: data.state || 'MADURO',
-        imperfectionPercentage: data.imperfection_percentage ?? 0,
-        imperfectionDetails: data.imperfection_details || 'Análisis del modelo completado',
-        shelfLifeDays: data.shelf_life_days || '—',
-        suggestedAction: data.suggested_action || '—',
-        confidence: data.confidence ?? 0,
-        imageUrl: storedImageUrl,
-        caliber: data.caliber || '—',
-        estimatedWeight: data.estimated_weight || '—',
-        detections: Array.isArray(data.detections) ? data.detections : [],
-        source: 'modelo',
-      };
-    }
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    return buildDemoResult(sample.fruit, sample.state, sample.imperfection, finalLotId, storedImageUrl);
   }
 
-  await new Promise((resolve) => setTimeout(resolve, 3200));
+  const apiUrl = (config.apiUrl || '/api').replace(/\/$/, '');
+  let res: Response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const formData = new FormData();
+    formData.append('file', await imageToUploadBlob(imageBlobOrUrl), 'capture.jpg');
+    formData.append('lot_id', finalLotId);
+    res = await fetch(`${apiUrl}/predict`, { method: 'POST', body: formData, signal: controller.signal });
+  } catch (err) {
+    const timedOut = err instanceof DOMException && err.name === 'AbortError';
+    throw new ScanError(
+      timedOut ? 'El servidor del modelo tardó demasiado en responder.' : 'No se pudo conectar con el servidor del modelo.',
+      `Revisá que el backend esté encendido y que la dirección en Ajustes sea correcta (${apiUrl}).`
+    );
+  } finally {
+    clearTimeout(timer);
+  }
 
-  const sample = SAMPLE_PHOTOS.find((s) => s.imageUrl === imageBlobOrUrl);
-  const pool = [...SAMPLE_PHOTOS, ...EXTRA_PRESETS];
-  const selected = sample ?? pool[Math.floor(Math.random() * pool.length)];
-  return buildDemoResult(selected.fruit, selected.state, selected.imperfection, finalLotId, storedImageUrl);
+  if (res.status === 422 || res.status === 400) {
+    const body = await res.json().catch(() => null);
+    throw new ScanError(
+      body?.detail || 'No se detectó ninguna fruta en la imagen.',
+      'Acercate a la fruta, que se vea completa y con buena luz, sin fondos del mismo color.'
+    );
+  }
+  if (!res.ok) {
+    throw new ScanError(`El servidor respondió con un error (HTTP ${res.status}).`, 'Mirá la consola del backend para ver el detalle.');
+  }
+
+  const data = await res.json();
+  return {
+    id: data.id || `SCAN-${Date.now()}`,
+    timestamp: formatTimestamp(new Date()),
+    lotId: data.lot_id || finalLotId,
+    fruitType: data.fruit_type,
+    state: data.state,
+    imperfectionPercentage: data.imperfection_percentage ?? 0,
+    imperfectionDetails: data.imperfection_details || 'Análisis del modelo completado',
+    shelfLifeDays: data.shelf_life_days || '—',
+    suggestedAction: data.suggested_action || '—',
+    confidence: data.confidence ?? 0,
+    imageUrl: storedImageUrl,
+    caliber: data.caliber || '—',
+    estimatedWeight: data.estimated_weight || '—',
+    detections: Array.isArray(data.detections) ? data.detections : [],
+    source: 'modelo',
+  };
 }

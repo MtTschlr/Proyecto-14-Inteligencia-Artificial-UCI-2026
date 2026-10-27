@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   CameraIcon,
   UploadIcon,
@@ -8,9 +8,45 @@ import {
   AnalyzeIcon,
   ImagesIcon,
   TagIcon,
+  AlertIcon,
 } from './CustomIcons';
 import { CornerGuides } from './CornerGuides';
 import { SAMPLE_PHOTOS } from '../services/api';
+
+const SampleThumb: React.FC<{ src: string; name: string; eager: boolean }> = ({ src, name, eager }) => {
+  const [status, setStatus] = useState<'cargando' | 'lista' | 'error'>('cargando');
+
+  return (
+    <span className="relative block w-full h-full">
+      {status !== 'lista' && (
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 p-2 bg-salvia-100 text-hoja-800 text-[11px] font-medium leading-tight text-center">
+          {status === 'error' ? (
+            <>
+              <AlertIcon size={18} />
+              Sin conexión a la foto
+            </>
+          ) : (
+            name
+          )}
+        </span>
+      )}
+      {status !== 'error' && (
+        <img
+          src={src}
+          alt={name}
+          width={112}
+          height={112}
+          loading={eager ? 'eager' : 'lazy'}
+          fetchPriority={eager ? 'high' : 'auto'}
+          decoding="async"
+          onLoad={() => setStatus('lista')}
+          onError={() => setStatus('error')}
+          className={`block w-full h-full object-cover transition-opacity duration-300 ${status === 'lista' ? 'opacity-100' : 'opacity-0'}`}
+        />
+      )}
+    </span>
+  );
+};
 
 interface CaptureAreaProps {
   onCapture: (imageDataUrl: string, lotId: string) => void;
@@ -45,7 +81,7 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
     }
   }, [resetSignal]);
 
-  const stopCamera = () => {
+  const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -53,9 +89,9 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
-  };
+  }, []);
 
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     setCameraError(null);
     stopCamera();
 
@@ -89,7 +125,7 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
         );
       }
     }
-  };
+  }, [facingMode, stopCamera]);
 
   useEffect(() => {
     if (isCameraOpen) {
@@ -100,7 +136,7 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
     return () => {
       stopCamera();
     };
-  }, [isCameraOpen, facingMode]);
+  }, [isCameraOpen, startCamera, stopCamera]);
 
   const toggleFacingMode = () => {
     setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
@@ -322,7 +358,7 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
           Muestras de prueba
         </div>
         <div className="flex gap-3 overflow-x-auto snap-x snap-proximity scroll-px-4 sm:scroll-px-6 sin-barra -mx-4 px-4 sm:-mx-6 sm:px-6 pb-1">
-          {SAMPLE_PHOTOS.map((sample) => {
+          {SAMPLE_PHOTOS.map((sample, index) => {
             const selected = previewImage === sample.imageUrl;
             return (
               <button
@@ -333,12 +369,7 @@ export const CaptureArea: React.FC<CaptureAreaProps> = ({
                 className="snap-start shrink-0 w-28 text-center disabled:opacity-60"
               >
                 <span className={`block w-28 h-28 rounded-xl overflow-hidden bg-papel-hondo border-2 transition-colors ${selected ? 'border-hoja-800' : 'border-transparent'}`}>
-                  <img
-                    src={sample.imageUrl}
-                    alt={sample.name}
-                    loading="lazy"
-                    className="block w-full h-full object-cover"
-                  />
+                  <SampleThumb src={sample.thumbUrl} name={sample.name} eager={index < 3} />
                 </span>
                 <span className={`block mt-2 px-0.5 text-xs leading-snug ${selected ? 'font-bold text-hoja-900' : 'text-tinta-suave'}`}>
                   {sample.name}
