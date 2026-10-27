@@ -3,6 +3,12 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const apiProxy = {
+  target: process.env.BACKEND_URL || 'http://localhost:8000',
+  changeOrigin: true,
+  rewrite: (path: string) => path.replace(/^\/api/, ''),
+};
+
 export default defineConfig({
   plugins: [
     react(),
@@ -12,6 +18,7 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'favicon.png', 'sacred-apple.png', 'sacred-apple-192.png'],
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2}'],
+        navigateFallbackDenylist: [/^\/api/],
       },
       manifest: {
         name: 'Sacred Fruit - Clasificación de Calidad',
@@ -45,6 +52,13 @@ export default defineConfig({
   ],
   server: {
     host: true,
-    allowedHosts: true
+    allowedHosts: true,
+    proxy: { '/api': apiProxy },
+    watch: { ignored: ['**/backend/**', '**/dist/**', '**/.venv/**', '**/*.pt'] }
+  },
+  preview: {
+    host: true,
+    allowedHosts: true,
+    proxy: { '/api': apiProxy }
   }
 });
