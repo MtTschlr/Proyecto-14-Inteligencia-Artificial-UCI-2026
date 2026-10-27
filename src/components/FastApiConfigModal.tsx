@@ -25,7 +25,7 @@ export const FastApiConfigModal: React.FC<FastApiConfigModalProps> = ({ config, 
       setTestStatus('success');
       setTestMsg(
         data?.classes
-          ? `Conectado. Modelo cargado con ${data.classes.length} clases.`
+          ? `Conectado a ${data.model}. Modelo cargado con ${data.classes.length} clases.`
           : `Servidor alcanzado en ${apiUrl}`
       );
     } catch {
@@ -87,15 +87,16 @@ export const FastApiConfigModal: React.FC<FastApiConfigModalProps> = ({ config, 
             </label>
             <input
               id="api-url"
-              type="url"
+              type="text"
               inputMode="url"
               value={apiUrl}
               onChange={(e) => setApiUrl(e.target.value)}
-              placeholder="http://localhost:8000"
+              placeholder="/api"
               className="w-full min-h-12 font-mono text-base bg-papel border border-linea rounded-xl px-3.5 text-tinta focus:outline-none"
             />
             <span className="text-xs text-tinta-tenue block mt-1.5">
-              Se envía la foto a <span className="font-mono">POST /predict</span> (multipart/form-data).
+              Con <span className="font-mono">/api</span> la foto pasa por el mismo servidor de la app, así funciona también desde el celular.
+              Para un backend en otra máquina, escribí su dirección completa.
             </span>
           </div>
 

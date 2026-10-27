@@ -8,10 +8,10 @@ import { LabelModal } from './components/LabelModal';
 import { FastApiConfigModal } from './components/FastApiConfigModal';
 import { AlertIcon, CloseIcon, WifiOffIcon } from './components/CustomIcons';
 import type { FruitClassification, BackendConfig } from './types';
-import { classifyFruitImage, DEFAULT_BACKEND_CONFIG } from './services/api';
+import { classifyFruitImage, DEFAULT_BACKEND_CONFIG, ScanError } from './services/api';
 
 const LOCAL_STORAGE_HISTORY_KEY = 'sacred_fruit_history_v1';
-const LOCAL_STORAGE_CONFIG_KEY = 'sacred_fruit_config_v1';
+const LOCAL_STORAGE_CONFIG_KEY = 'sacred_fruit_config_v2';
 
 function scrollToResult(delay: number) {
   setTimeout(() => {
@@ -34,7 +34,7 @@ export function App() {
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [pendingImage, setPendingImage] = useState<string | null>(null);
-  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanError, setScanError] = useState<{ message: string; hint?: string } | null>(null);
   const [currentResult, setCurrentResult] = useState<FruitClassification | null>(null);
   const [resetCaptureSignal, setResetCaptureSignal] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<AppTab>('escanear');
@@ -91,7 +91,7 @@ export function App() {
 
   useEffect(() => {
     if (!scanError) return;
-    const timer = setTimeout(() => setScanError(null), 8000);
+    const timer = setTimeout(() => setScanError(null), 14000);
     return () => clearTimeout(timer);
   }, [scanError]);
 
@@ -110,8 +110,14 @@ export function App() {
 
       scrollToResult(100);
     } catch (err) {
-      console.error('Inference error:', err);
-      setScanError(err instanceof Error ? err.message : 'No se pudo analizar la imagen.');
+      if (err instanceof ScanError) console.info('Análisis sin resultado:', err.message);
+      else console.error('Inference error:', err);
+      setCurrentResult(null);
+      setScanError(
+        err instanceof ScanError
+          ? { message: err.message, hint: err.hint }
+          : { message: 'No se pudo analizar la imagen.' }
+      );
     } finally {
       setIsProcessing(false);
       setPendingImage(null);
@@ -209,7 +215,10 @@ export function App() {
           className="fixed z-40 left-4 right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] lg:left-auto lg:right-8 lg:bottom-8 lg:w-96 flex items-start gap-3 rounded-xl border border-terracota-300 bg-terracota-100 p-4 text-terracota-900 shadow-hoja-lg animate-aparecer"
         >
           <AlertIcon size={22} className="mt-0.5" />
-          <p className="flex-1 text-sm font-medium">{scanError}</p>
+          <div className="flex-1 text-sm">
+            <p className="font-semibold">{scanError.message}</p>
+            {scanError.hint && <p className="mt-1">{scanError.hint}</p>}
+          </div>
           <button
             onClick={() => setScanError(null)}
             aria-label="Cerrar aviso"
