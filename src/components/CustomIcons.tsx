@@ -1,30 +1,5 @@
-import React from 'react';
 import '@flaticon/flaticon-uicons/css/regular/rounded.css';
-
-interface IconProps {
-  className?: string;
-  size?: number;
-}
-
-const createIcon = (name: string): React.FC<IconProps> => {
-  const Icon: React.FC<IconProps> = ({ className = '', size = 24 }) => (
-    <i
-      aria-hidden="true"
-      className={`fi-rr-${name} ${className}`}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-        fontSize: size,
-        width: size,
-        height: size,
-        lineHeight: 1,
-      }}
-    />
-  );
-  return Icon;
-};
+import { createIcon } from './icons/iconUtils';
 
 export const CameraIcon = createIcon('camera');
 export const UploadIcon = createIcon('upload');
