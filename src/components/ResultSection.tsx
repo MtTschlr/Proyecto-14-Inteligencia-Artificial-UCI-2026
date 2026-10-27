@@ -77,13 +77,14 @@ export const ResultSection: React.FC<ResultSectionProps> = ({
       id="result-section"
       className="bg-papel-claro border border-linea rounded-2xl shadow-hoja-lg overflow-hidden scroll-mt-20 animate-aparecer"
     >
-      <div className="relative bg-hoja-950">
+      <div className="relative bg-hoja-950 min-h-[220px] flex items-center [--alto-foto:clamp(220px,58dvh,560px)] lg:[--alto-foto:340px]">
         <DetectionOverlay
           src={result.imageUrl}
           alt={`Foto de ${result.fruitType}`}
           detections={detections}
           color={style.color}
           visible={showDetections}
+          maxHeight="var(--alto-foto)"
         />
         {result.source === 'demo' && (
           <span className="absolute top-3 left-3 rounded-full bg-hoja-950/80 text-papel-claro text-xs font-medium px-3 py-1.5">

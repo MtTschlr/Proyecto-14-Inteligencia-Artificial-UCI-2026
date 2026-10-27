@@ -9,7 +9,8 @@ export interface Detection {
   label: string;
   confidence: number;
   box: [number, number, number, number];
-  polygon?: [number, number][];
+  polygon?: [number, number][] | null;
+  polygons?: [number, number][][];
 }
 
 export interface FruitClassification {
@@ -42,4 +43,5 @@ export interface SampleFruitPreset {
   state: FruitQualityState;
   imperfection: number;
   imageUrl: string;
+  thumbUrl: string;
 }

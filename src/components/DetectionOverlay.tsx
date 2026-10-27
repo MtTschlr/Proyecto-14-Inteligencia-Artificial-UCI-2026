@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Detection } from '../types';
 
 interface DetectionOverlayProps {
@@ -7,10 +7,19 @@ interface DetectionOverlayProps {
   detections: Detection[];
   color: string;
   visible: boolean;
-  imgClassName?: string;
+  maxHeight?: string;
 }
 
-const toPoints = (polygon: [number, number][]) => polygon.map(([x, y]) => `${(x * 100).toFixed(2)},${(y * 100).toFixed(2)}`).join(' ');
+// El historial viejo solo trae `polygon`; el backend nuevo manda `polygons` (una entrada por parte de la máscara).
+const shapesOf = (d: Detection): [number, number][][] => d.polygons?.length ? d.polygons : d.polygon ? [d.polygon] : [];
+
+const toPath = (polygons: [number, number][][]) =>
+  polygons
+    .map((poly) => `M${poly.map(([x, y]) => `${(x * 100).toFixed(2)},${(y * 100).toFixed(2)}`).join('L')}Z`)
+    .join(' ');
+
+const boxPath = ([x1, y1, x2, y2]: Detection['box']) =>
+  `M${x1 * 100},${y1 * 100}H${x2 * 100}V${y2 * 100}H${x1 * 100}Z`;
 
 export const DetectionOverlay: React.FC<DetectionOverlayProps> = ({
   src,
@@ -18,15 +27,28 @@ export const DetectionOverlay: React.FC<DetectionOverlayProps> = ({
   detections,
   color,
   visible,
-  imgClassName = 'max-h-[46vh] lg:max-h-[340px]',
+  maxHeight = 'clamp(220px, 58dvh, 560px)',
 }) => {
+  const [ratio, setRatio] = useState<number | null>(null);
   const fruits = detections.filter((d) => d.kind === 'fruta');
   const defects = detections.filter((d) => d.kind === 'defecto');
 
   return (
-    <div className="relative w-fit max-w-full mx-auto">
-      <img src={src} alt={alt} className={`block w-auto max-w-full h-auto ${imgClassName}`} />
-      {visible && detections.length > 0 && (
+    <div
+      className="relative mx-auto"
+      style={ratio ? { aspectRatio: ratio, width: `min(100%, calc(${maxHeight} * ${ratio}))` } : { width: '100%' }}
+    >
+      <img
+        src={src}
+        alt={alt}
+        onLoad={(e) => {
+          const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+          if (w && h) setRatio(w / h);
+        }}
+        className={`block w-full ${ratio ? 'h-full object-contain' : 'h-auto'}`}
+        style={ratio ? undefined : { maxHeight }}
+      />
+      {visible && ratio && detections.length > 0 && (
         <>
           <svg
             viewBox="0 0 100 100"
@@ -34,69 +56,52 @@ export const DetectionOverlay: React.FC<DetectionOverlayProps> = ({
             className="absolute inset-0 w-full h-full pointer-events-none animate-fundido"
             aria-hidden="true"
           >
-            {fruits.map((d, i) =>
-              d.polygon ? (
-                <polygon
+            {fruits.map((d, i) => {
+              const shapes = shapesOf(d);
+              return (
+                <path
                   key={`f${i}`}
-                  points={toPoints(d.polygon)}
-                  fill={color}
+                  d={shapes.length ? toPath(shapes) : boxPath(d.box)}
+                  fill={shapes.length ? color : 'none'}
                   fillOpacity={0.16}
+                  fillRule="evenodd"
                   stroke={color}
                   strokeWidth={2.5}
                   strokeLinejoin="round"
                   vectorEffect="non-scaling-stroke"
                 />
-              ) : (
-                <rect
-                  key={`f${i}`}
-                  x={d.box[0] * 100}
-                  y={d.box[1] * 100}
-                  width={(d.box[2] - d.box[0]) * 100}
-                  height={(d.box[3] - d.box[1]) * 100}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth={2.5}
-                  vectorEffect="non-scaling-stroke"
-                />
-              )
-            )}
-            {defects.map((d, i) =>
-              d.polygon ? (
-                <polygon
+              );
+            })}
+            {defects.map((d, i) => {
+              const shapes = shapesOf(d);
+              return (
+                <path
                   key={`d${i}`}
-                  points={toPoints(d.polygon)}
+                  d={shapes.length ? toPath(shapes) : boxPath(d.box)}
                   fill="var(--color-terracota-500)"
-                  fillOpacity={0.55}
+                  fillOpacity={shapes.length ? 0.55 : 0.35}
                   stroke="#ffffff"
                   strokeWidth={1.75}
                   strokeLinejoin="round"
                   vectorEffect="non-scaling-stroke"
                 />
-              ) : (
-                <rect
-                  key={`d${i}`}
-                  x={d.box[0] * 100}
-                  y={d.box[1] * 100}
-                  width={(d.box[2] - d.box[0]) * 100}
-                  height={(d.box[3] - d.box[1]) * 100}
-                  fill="var(--color-terracota-500)"
-                  fillOpacity={0.35}
-                  stroke="#ffffff"
-                  strokeWidth={1.75}
-                  vectorEffect="non-scaling-stroke"
-                />
-              )
-            )}
+              );
+            })}
           </svg>
-          {fruits.slice(0, 4).map((d, i) => (
-            <span
-              key={`l${i}`}
-              className="absolute -translate-y-full -mt-1 rounded-md bg-hoja-950/85 px-1.5 py-0.5 font-mono text-[11px] font-medium text-papel-claro pointer-events-none"
-              style={{ left: `${Math.min(d.box[0], 0.7) * 100}%`, top: `${Math.max(d.box[1], 0.08) * 100}%` }}
-            >
-              {d.label.replace('_', ' ')} {Math.round(d.confidence * 100)}%
-            </span>
-          ))}
+          {fruits.slice(0, 4).map((d, i) => {
+            const above = d.box[1] > 0.12;
+            return (
+              <span
+                key={`l${i}`}
+                className={`absolute rounded-md bg-hoja-950/85 px-1.5 py-0.5 font-mono text-[11px] font-medium text-papel-claro pointer-events-none whitespace-nowrap ${
+                  above ? '-translate-y-full -mt-1' : 'mt-1'
+                }`}
+                style={{ left: `${Math.min(Math.max(d.box[0], 0.01), 0.6) * 100}%`, top: `${Math.max(d.box[1], 0) * 100}%` }}
+              >
+                {d.label.replace('_', ' ')} {Math.round(d.confidence * 100)}%
+              </span>
+            );
+          })}
         </>
       )}
     </div>
