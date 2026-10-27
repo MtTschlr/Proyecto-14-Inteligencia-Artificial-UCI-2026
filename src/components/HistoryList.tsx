@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from 'react';
-import * as XLSX from 'xlsx';
 import type { FruitClassification, FruitQualityState } from '../types';
 import {
   HistoryIcon,
@@ -63,8 +62,9 @@ export const HistoryList: React.FC<HistoryListProps> = ({
     setCurrentPage(1);
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (history.length === 0) return;
+    const XLSX = await import('xlsx');
 
     const dataForExcel = history.map((item) => ({
       'ID Registro': item.id,
