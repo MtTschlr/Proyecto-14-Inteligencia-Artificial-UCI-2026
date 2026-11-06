@@ -1,0 +1,28 @@
+services:
+  backend:
+    build: ./backend
+    image: sacred-fruit-backend
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      MODEL_PATH: /models/best.pt
+      FALLBACK_MODEL_PATH: ${FALLBACK_MODEL_PATH:-/models/best_v2.pt}
+    volumes:
+      - ./best.pt:/models/best.pt:ro
+      - ./best_v2.pt:/models/best_v2.pt:ro
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  frontend:
+    build: .
+    image: sacred-fruit-frontend
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
