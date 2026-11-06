@@ -1,0 +1,13 @@
+.git
+node_modules
+dist
+backend
+docs
+scripts
+*.pt
+*.md
+.env
+.env.*
+Dockerfile
+docker-compose.yml
+.dockerignore
