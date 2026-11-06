@@ -1,80 +1,75 @@
+@import "@fontsource/bricolage-grotesque/latin-500.css";
+@import "@fontsource/bricolage-grotesque/latin-700.css";
+@import "@fontsource/bricolage-grotesque/latin-800.css";
+@import "@fontsource/atkinson-hyperlegible-next/latin-400.css";
+@import "@fontsource/atkinson-hyperlegible-next/latin-600.css";
+@import "@fontsource/atkinson-hyperlegible-next/latin-700.css";
+@import "@fontsource/spline-sans-mono/latin-400.css";
+@import "@fontsource/spline-sans-mono/latin-600.css";
 @import "tailwindcss";
 
 @theme {
-  --font-serif: Georgia, 'Times New Roman', serif;
-  --font-sans: Arial, Helvetica, sans-serif;
-  --font-mono: 'Courier New', Courier, monospace;
+  --font-display: 'Bricolage Grotesque', 'Trebuchet MS', sans-serif;
+  --font-sans: 'Atkinson Hyperlegible Next', 'Segoe UI', sans-serif;
+  --font-mono: 'Spline Sans Mono', ui-monospace, monospace;
 
-  --color-papel: #f4eddb;
-  --color-papel-claro: #fbf7ec;
-  --color-papel-hondo: #eae1c8;
-  --color-linea: #d6caa9;
-  --color-linea-suave: #e4dac0;
+  --color-piedra: #eceee4;
+  --color-piedra-2: #e1e4d6;
+  --color-piedra-3: #d2d6c4;
+  --color-hoja: #fafaf5;
 
-  --color-tinta: #1b2a21;
-  --color-tinta-suave: #44554a;
-  --color-tinta-tenue: #5c6c60;
+  --color-tinta: #161821;
+  --color-tinta-2: #474d5c;
+  --color-tinta-3: #656b7a;
 
-  --color-hoja-950: #0e2217;
-  --color-hoja-900: #153020;
-  --color-hoja-800: #1d4430;
-  --color-hoja-700: #275a3f;
-  --color-hoja-600: #337050;
-  --color-hoja-500: #4a8a66;
+  --color-anil-950: #0c1022;
+  --color-anil-900: #141a36;
+  --color-anil-800: #1d254d;
+  --color-anil-700: #2a3672;
+  --color-anil-600: #3a4aa0;
+  --color-anil-300: #aab3e6;
+  --color-anil-100: #e2e5f5;
 
-  --color-salvia-100: #e3eadb;
-  --color-salvia-200: #ccd9c4;
-  --color-salvia-300: #b0c4a9;
-  --color-salvia-400: #8da88a;
-  --color-salvia-500: #6f8e6e;
+  --color-lima-300: #e1f78a;
+  --color-lima-400: #d3f25a;
+  --color-lima-700: #5a7300;
 
-  --color-lima-100: #eef3c4;
-  --color-lima-300: #d3e27a;
-  --color-lima-500: #a8be33;
-  --color-lima-700: #5d6e11;
-  --color-lima-900: #3a4609;
+  --color-verde-100: #d9eed8;
+  --color-verde-500: #3b9149;
+  --color-verde-900: #1b4a24;
 
-  --color-miel-100: #fbeabc;
-  --color-miel-300: #f3cd68;
-  --color-miel-500: #e0a11a;
-  --color-miel-700: #8a5806;
-  --color-miel-900: #5a3801;
+  --color-sol-100: #fcefc0;
+  --color-sol-500: #efb200;
+  --color-sol-900: #654900;
 
-  --color-terracota-100: #f5dacd;
-  --color-terracota-300: #e3a78b;
-  --color-terracota-500: #b8532d;
-  --color-terracota-700: #82331a;
-  --color-terracota-900: #55200f;
+  --color-ciruela-100: #f0dbe7;
+  --color-ciruela-500: #8a326a;
+  --color-ciruela-900: #4a1439;
 
-  --shadow-hoja: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 1px 2px rgb(29 68 48 / 0.08), 0 10px 24px -14px rgb(29 68 48 / 0.35);
-  --shadow-hoja-lg: 0 1px 0 rgb(255 255 255 / 0.7) inset, 0 2px 4px rgb(29 68 48 / 0.08), 0 22px 44px -22px rgb(14 34 23 / 0.5);
-  --shadow-barra: 0 -8px 24px -12px rgb(14 34 23 / 0.28);
+  --color-frambuesa-500: #e5245f;
+  --color-frambuesa-100: #fbdbe4;
+  --color-frambuesa-900: #6e0f2c;
 
-  --animate-aparecer: aparecer 0.28s ease-out backwards;
+  --shadow-ficha: 0 1px 2px rgb(20 26 54 / 0.06), 0 12px 32px -18px rgb(20 26 54 / 0.35);
+  --shadow-flota: 0 18px 40px -16px rgb(12 16 34 / 0.55);
+
+  --animate-entrar: entrar 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   --animate-fundido: fundido 0.2s ease-out backwards;
-  --animate-hoja: hoja-subir 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-  --animate-dialogo: dialogo 0.22s ease-out backwards;
-  --animate-escaneo: escaneo 1.9s ease-in-out infinite alternate;
-  --animate-latir: latir 1.4s ease-in-out infinite;
+  --animate-subir: subir 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  --animate-barrido: barrido 1.6s ease-in-out infinite alternate;
 
-  @keyframes aparecer {
-    from { opacity: 0; transform: translateY(8px); }
+  @keyframes entrar {
+    from { opacity: 0; transform: translateY(10px); }
   }
   @keyframes fundido {
     from { opacity: 0; }
   }
-  @keyframes hoja-subir {
+  @keyframes subir {
     from { transform: translateY(100%); }
   }
-  @keyframes dialogo {
-    from { opacity: 0; transform: translateY(12px); }
-  }
-  @keyframes escaneo {
-    from { top: 4%; }
-    to { top: 96%; }
-  }
-  @keyframes latir {
-    50% { opacity: 0.45; }
+  @keyframes barrido {
+    from { top: 3%; }
+    to { top: 97%; }
   }
 }
 
@@ -84,31 +79,34 @@
     -webkit-tap-highlight-color: transparent;
   }
   body {
-    background-color: var(--color-papel);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.15 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-color: var(--color-piedra);
+    background-image:
+      radial-gradient(circle at 1px 1px, rgb(20 26 54 / 0.07) 1px, transparent 0);
+    background-size: 22px 22px;
     color: var(--color-tinta);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     overscroll-behavior-y: none;
   }
-  h1, h2, h3, .font-serif {
-    font-family: var(--font-serif);
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
   }
-  button, [role="button"], a {
+  button, [role="button"], a, label {
     touch-action: manipulation;
   }
-  button:focus, a:focus, input:focus, select:focus, button:focus-visible, a:focus-visible {
-    outline: none;
+  :focus-visible {
+    outline: 3px solid var(--color-anil-600);
+    outline-offset: 2px;
   }
   ::selection {
-    background: var(--color-lima-300);
-    color: var(--color-lima-900);
+    background: var(--color-lima-400);
+    color: var(--color-anil-950);
   }
 }
 
 @layer utilities {
   .pb-seguro {
-    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    padding-bottom: env(safe-area-inset-bottom);
   }
   .pt-seguro {
     padding-top: env(safe-area-inset-top);
@@ -119,12 +117,17 @@
   .sin-barra::-webkit-scrollbar {
     display: none;
   }
-  .barra-fina {
-    scrollbar-width: thin;
-    scrollbar-color: var(--color-salvia-300) transparent;
+  .rayado {
+    background-image: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.06) 0 2px, transparent 2px 9px);
   }
-  .trama {
-    background-image: repeating-linear-gradient(135deg, transparent 0 5px, rgb(255 255 255 / 0.5) 5px 6px);
+  .cuadricula {
+    background-image:
+      linear-gradient(rgb(225 247 138 / 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(225 247 138 / 0.07) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -137,52 +140,34 @@
   }
 }
 
-/* Strict 1-page print media query fixed at top-left corner */
 @media print {
   @page {
-    margin: 0 !important;
+    margin: 0;
   }
   html, body {
-    background: #ffffff !important;
+    background: #fff !important;
     margin: 0 !important;
     padding: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
+    height: auto !important;
     overflow: hidden !important;
-    page-break-after: avoid !important;
-    page-break-before: avoid !important;
-    page-break-inside: avoid !important;
-    break-after: avoid !important;
-    break-before: avoid !important;
-    break-inside: avoid !important;
   }
   body * {
     visibility: hidden !important;
   }
-  #thermal-label-print-area,
-  #thermal-label-print-area * {
+  #etiqueta-termica,
+  #etiqueta-termica * {
     visibility: visible !important;
   }
-  #thermal-label-print-area {
-    display: block !important;
+  #etiqueta-termica {
     position: fixed !important;
     left: 0 !important;
     top: 0 !important;
     width: 80mm !important;
-    max-width: 80mm !important;
     margin: 0 !important;
     padding: 4mm !important;
-    background: #ffffff !important;
-    color: #000000 !important;
-    border: 2px solid #000000 !important;
-    box-sizing: border-box !important;
+    background: #fff !important;
+    color: #000 !important;
     box-shadow: none !important;
-    page-break-after: avoid !important;
-    page-break-before: avoid !important;
-    page-break-inside: avoid !important;
-    break-after: avoid !important;
-    break-before: avoid !important;
     break-inside: avoid !important;
   }
 }
