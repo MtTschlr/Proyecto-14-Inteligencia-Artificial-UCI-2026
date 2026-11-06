@@ -10,19 +10,13 @@
 
 ---
 
-# Sacred Fruit: PWA de control de calidad de frutas
+# Sacred Fruit
 
-![React](https://img.shields.io/badge/React-19-blue?logo=react)
-![TypeScript](https://img.shields.io/badge/TypeScript-6-blue?logo=typescript)
-![Vite](https://img.shields.io/badge/Vite-8-purple?logo=vite)
-![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4-green?logo=tailwindcss)
-![FastAPI](https://img.shields.io/badge/FastAPI-backend-teal?logo=fastapi)
-
-El operario fotografía el lote desde el celular, el modelo segmenta las frutas y sus zonas dañadas, y la app muestra la madurez, el porcentaje de imperfección, la vida útil estimada y una recomendación logística. Después se imprime una etiqueta térmica de 80 mm. El historial se guarda en el dispositivo y se exporta a Excel.
+El operario saca una foto del lote con el celular. El modelo marca cada fruta y sus zonas dañadas, y la app muestra la fruta, el estado de madurez, la confianza, el porcentaje de imperfección, la vida útil y qué hacer con el lote. Un panel explica cómo se llegó a esa respuesta. Después se puede imprimir una etiqueta térmica de 80 mm. El historial queda guardado en el dispositivo y se exporta a Excel.
 
 ## El modelo (best.pt)
 
-Es un modelo **YOLO11s-seg** de Ultralytics (tarea `segment`, entrada de 640 px) con 13 clases. Se entrenó en Google Colab con el notebook `backend/sacred_fruit_reentrenamiento.ipynb`, usando el dataset propio de Roboflow más tres datasets públicos de naranjas, mangos y tomates y unas 600 fotos sin fruta de COCO:
+Es un modelo **YOLO11s-seg** de Ultralytics (tarea `segment`, entrada de 640 px) con 13 clases. Se entrenó en Google Colab con el notebook `backend/sacred_fruit_reentrenamiento.ipynb`, usando el dataset propio de Roboflow (con las fotos reales nuevas), siete datasets públicos de Roboflow Universe con fotos reales de las cuatro frutas (incluida fruta pasada) y fotos sin fruta de COCO:
 
 | Fruta   | Verde           | Maduro / madura   | Sobrepasado / sobrepasada |
 | ------- | --------------- | ----------------- | ------------------------- |
@@ -33,189 +27,233 @@ Es un modelo **YOLO11s-seg** de Ultralytics (tarea `segment`, entrada de 640 px)
 
 Además existe la clase `defecto`, que marca las zonas dañadas de la fruta.
 
-Cómo se calcula cada dato:
+La versión actual (v4) es un ajuste fino de 30 épocas sobre la anterior (v3). Suma dos datasets públicos con defectos ya marcados (naranjas y tomates de `mcf-wascl/fruit-ptiqf`, y bananas golpeadas de `h2sagings-workspace/banana-uuiln`). Esos datasets marcan la fruta pero no su estado: el estado lo puso el modelo v3, y las fotos donde no estaba seguro se descartaron.
 
-- **Fruta y estado**: la clase de fruta con más superficie detectada en la foto, después de descartar detecciones con poca confianza, muy chicas, con forma rectangular o que CLIP reconoce como otra cosa (otra fruta, una pelota, una cara).
+`best_v2.pt` es el modelo anterior y queda como **respaldo**: si `best.pt` no deja ninguna fruta después de los filtros, la misma foto se analiza con `best_v2.pt`.
+
+### Resultados
+
+Medido con `backend/evaluate.py` sobre las 69 fotos de `backend/tests/imagenes` (35 con fruta y 34 sin fruta). El detalle completo, con las matrices de confusión y los gráficos, está en [docs/evaluacion.md](docs/evaluacion.md).
+
+| Variante | Fruta correcta | Fruta y estado | Fotos sin fruta rechazadas | Latencia media |
+| --- | --- | --- | --- | --- |
+| CLIP + respaldo (la que usa la app) | 34/35 | 30/35 | 34/34 | 212 ms |
+| CLIP sin respaldo | 29/35 | 26/35 | 34/34 | 176 ms |
+| Sin CLIP + respaldo | 23/35 | 21/35 | 24/34 | 183 ms |
+| Sin CLIP ni respaldo | 19/35 | 17/35 | 25/34 | 129 ms |
+
+Las latencias son de una notebook con CPU y cambian según el equipo.
+
+Lo que todavía falla, y no se arregla con reglas:
+
+- La clase `defecto` llega a mAP50 0,88 en validación, pero en las 6 fotos de prueba con manchas, sacadas de internet, no marca zonas. Hacen falta fotos propias con las manchas marcadas en Roboflow.
+- La fruta pasada a veces sale como madura o verde (recall de "sobrepasado": 0,62).
+- Un mango fotografiado muy de cerca puede salir como naranja.
+
+### Cómo se calcula cada dato
+
+- **Fruta y estado**: la clase con más superficie detectada, después de descartar las detecciones con poca confianza, muy chicas, con forma rectangular o que CLIP reconoce como otra cosa.
 - **Confianza**: promedio de la confianza de las detecciones de esa clase.
 - **% de imperfección**: superficie de las máscaras `defecto` que cae sobre la fruta, dividida por la superficie total de fruta.
-- **Calibre, peso y vida útil**: el modelo no los entrega. Se resuelven con reglas fijas por fruta y estado (`backend/main.py` y `src/services/fruitRules.ts`).
+- **Calibre, embalaje y vida útil**: el modelo no los entrega. Salen de reglas fijas por fruta y estado (`backend/app/rules.py`).
 - **Recomendación logística**: regla según el estado y el nivel de imperfección (leve menos de 5 %, moderada hasta 12 %, elevada desde 12 %).
 
 ## Cómo levantar todo
 
-Requisitos: Node.js 18 o superior y Python 3.10 o superior. La primera instalación del backend descarga PyTorch, así que tarda.
+### Con Docker (recomendado para la demo)
 
-1. Backend (una terminal):
+Requisitos: Docker con Compose 2.24 o superior.
+
+```bash
+cp .env.example .env        # opcional: solo si querés cambiar algo
+docker compose up --build
+```
+
+- App: <http://localhost:8080>
+- API y Swagger: <http://localhost:8000/docs>
+
+El primer build tarda porque baja PyTorch para CPU y los pesos de CLIP. Después de eso el contenedor arranca sin internet. Los modelos `best.pt` y `best_v2.pt` se montan desde la raíz del proyecto en modo lectura, así que para cambiar de modelo alcanza con reemplazar el archivo y reiniciar.
+
+El frontend espera a que el backend esté sano (`depends_on` con `service_healthy`). Antes de aceptar fotos, el backend carga los dos modelos y CLIP y hace una inferencia de prueba; en la notebook donde se probó eso tarda unos 5 segundos (sin Docker). El healthcheck le da hasta 2 minutos de margen.
+
+Para probar la API desde la terminal:
+
+```bash
+curl http://localhost:8000/health
+curl -F "file=@backend/tests/imagenes/positivas/tomate_maduro_01.jpg" -F lot_id=LOTE-1 http://localhost:8080/api/predict
+```
+
+### Sin Docker
+
+Requisitos: Node.js 18 o superior y Python 3.11.
+
+Backend, en una terminal:
 
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate          # en Linux o Mac: source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --host 0.0.0.0 --port 8000
+.venv\Scripts\activate                     # en Linux o Mac: source .venv/bin/activate
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+pip install -r requirements-dev.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-2. Frontend (otra terminal, en la raíz del proyecto):
+La primera vez CLIP baja unos 600 MB de pesos. Si no hay internet, el servidor arranca igual sin CLIP y `/health` lo informa con `"status": "degradado"`.
+
+Frontend, en otra terminal y en la raíz del proyecto:
 
 ```bash
 npm install
 npm run dev
 ```
 
-La app manda las fotos a `/api` y Vite las reenvía al backend en `http://localhost:8000`. Si el backend está en otra máquina, se puede cambiar con la variable `BACKEND_URL` antes de `npm run dev`, o escribir la dirección completa en Ajustes.
+La app manda las fotos a `/api` y Vite las pasa al backend en `http://localhost:8000`. Si el backend está en otra máquina, se cambia con la variable `BACKEND_URL` antes de `npm run dev`, o escribiendo la dirección en la pestaña **Sistema**.
 
-Otros comandos: `npm run build` compila y genera la PWA, `npm run preview` la sirve con el mismo proxy, `npm run lint` corre oxlint.
+Otros comandos: `npm run build` compila la PWA, `npm run preview` la sirve con el mismo proxy y `npm run lint` corre oxlint.
 
-Vite no vigila `backend/`, `dist/`, `.venv/` ni los `.pt`. Sin eso, en Linux se caía con `ENOSPC` por la cantidad de archivos de PyTorch en `backend/.venv`.
+### Probar en el celular
 
-### Modo demo
+El botón **Sacar foto** abre la cámara del teléfono con un `input` de archivo, que funciona también por HTTP en la red local: alcanza con abrir `http://<ip-de-la-compu>:8080`. Para instalar la PWA hace falta HTTPS; una opción es un túnel de Cloudflare:
 
-Se activa en Ajustes. Solo analiza las **muestras de prueba**, que traen su resultado fijo. Una foto propia en modo demo muestra un aviso: la app nunca inventa un resultado.
+```bash
+npx --yes cloudflared tunnel --url http://localhost:8080
+```
+
+## La app
+
+- **Analizar**: foto con la cámara, desde la galería o arrastrándola (en escritorio). También hay 8 fotos de prueba, incluida una pelota para mostrar el rechazo.
+- **Resultado**: la foto con las máscaras de cada fruta (coloreadas por estado) y de las zonas dañadas, con capas que se prenden y apagan y control de opacidad. Al lado, la ficha con fruta, estado, confianza, imperfección, vida útil, recomendación, calibre y embalaje, y si la foto tiene más de una clase, cuánto ocupa cada una.
+- **Cómo se decidió**: qué modelo respondió, qué descartaron los filtros, qué descartó o corrigió CLIP y la lista de detecciones descartadas con su motivo. Sale de `verification` y del modo `debug` de `/predict`.
+- **Historial**: queda en el dispositivo, con filtros por lote, estado y fruta, y exportación a Excel.
+- **Sistema**: estado del servidor, dirección del backend, clases y umbrales activos del modelo, y créditos.
+
+Casos límite con su propia pantalla: sin fruta, objeto que no es fruta (dice qué parece), varias frutas, foto oscura o movida, archivo que no es imagen, imagen dañada o demasiado grande, servidor caído, demora excesiva y sin internet. Con el servidor caído o sin conexión, las fotos de prueba ofrecen el **resultado guardado**: lo que el modelo respondió con esa misma foto cuando se generaron las muestras, marcado como tal.
 
 ## Backend (FastAPI)
 
-El servidor busca el modelo en `../best.pt` (el modelo anterior quedó como `best_v1.pt`). Variables de entorno:
+### Endpoints
 
-| Variable | Por defecto | Para qué sirve |
+La documentación completa, con modelos de respuesta y ejemplos, está en `/docs` (Swagger).
+
+| Método | Ruta | Qué hace |
 | --- | --- | --- |
-| `MODEL_PATH` | `../best.pt` | Archivo del modelo |
-| `CONF_THRESHOLD` | `0.25` con CLIP, `0.5` sin CLIP | Confianza mínima para aceptar una fruta. Subilo si aparecen frutas donde no hay, bajalo si no detecta frutas reales |
-| `CONF_BANANA`, `CONF_MANGO`, `CONF_NARANJA`, `CONF_TOMATE` | igual que `CONF_THRESHOLD` (mango `0.6` sin CLIP) | Umbral propio de cada fruta. Pisa a `CONF_THRESHOLD` solo para esa fruta |
-| `DEFECT_CONF` | `0.25` | Confianza mínima para las zonas dañadas |
-| `MIN_AREA` | `0.01` | Superficie mínima de una fruta (1 % de la foto) |
-| `MAX_FILL` | `0.93` | Si la máscara llena más de este porcentaje de su recuadro, se descarta: las frutas son redondeadas y las paredes o techos son rectángulos |
-| `RED_SWAP` | `0.5` | Si una "naranja" tiene más de esta proporción de color rojo, se corrige a tomate |
-| `CLIP_VERIFY` | `1` | `1` revisa cada fruta detectada con CLIP; `0` lo apaga. Si los pesos no se pueden bajar, se apaga solo y el servidor sigue andando |
-| `CLIP_MARGIN` | `0.25` | Cuánto tiene que ganarle "otra cosa" a la fruta detectada para descartarla |
-| `CLIP_SWAP` | `0.6` | Si CLIP está así de seguro de que es otra de las cuatro frutas, corrige la fruta y deja el estado de madurez |
-| `CLIP_MAX_CROPS` | `6` | Máximo de detecciones que revisa CLIP por foto (las más grandes) |
-| `ALLOWED_ORIGINS` | `*` | CORS |
+| `GET` | `/health` | Estado del servidor, si CLIP cargó y si hay respaldo |
+| `GET` | `/model/info` | Clases y versión de los modelos, umbrales activos, configuración de CLIP y límites |
+| `POST` | `/predict` | Analiza una foto (`multipart/form-data`, campos `file` y `lot_id`). Con `?debug=true` suma las detecciones descartadas |
+
+Errores de `/predict`. Todos traen `detail` (mensaje para la app), `code` y `hint`:
+
+| Código | `code` | Cuándo |
+| --- | --- | --- |
+| 400 | `imagen_corrupta`, `imagen_chica`, `archivo_vacio`, `solicitud_invalida` | La imagen no se puede abrir, es muy chica, llegó vacía o falta el archivo |
+| 413 | `archivo_muy_grande`, `imagen_muy_grande` | Pesa más de `MAX_UPLOAD_MB` o tiene más de `MAX_PIXELS` píxeles |
+| 415 | `no_es_imagen`, `formato_no_soportado` | No es una imagen, o es HEIC/AVIF |
+| 422 | `sin_fruta` | No quedó ninguna fruta. `reason` dice por qué: `sin_deteccion`, `no_es_fruta`, `muy_chica`, `forma` o `confianza_baja` |
+
+Cada respuesta trae `elapsed_ms` en el cuerpo y el encabezado `X-Process-Time-Ms`. También trae `quality` con el brillo y la nitidez de la foto, y avisa si está oscura o movida. Ese aviso no cambia el resultado del modelo.
+
+Las coordenadas de `box` y de los polígonos van normalizadas entre 0 y 1, respecto de la imagen ya girada según el EXIF.
 
 ### Verificación con CLIP
 
-Al arrancar, el backend carga CLIP (ViT-B-32, pesos `laion2b_s34b_b79k`, unos 600 MB que se bajan la primera vez). Recorta cada fruta detectada, con un 10 % de margen, y la compara contra textos de las cuatro frutas del proyecto, de otras frutas (manzana, limón, pera, frutilla, etc.) y de objetos (techo, pared, pelota, cara, caja, etc.).
+Al arrancar, el backend carga CLIP (ViT-B-32, pesos `laion2b_s34b_b79k`). Recorta cada fruta detectada con un 10 % de margen y la compara contra textos de las cuatro frutas, de otras frutas y verduras (manzana, limón, pera, frutilla, calabaza, morrón, papa, cebolla, etc.) y de objetos (techo, pared, pelota, cara, caja, etc.).
 
-- Si gana otra cosa, la detección se descarta y queda anotada en `verification.clip.rejected`.
+- Si gana otra cosa, la detección se descarta.
 - Si gana otra de las cuatro frutas con más de `CLIP_SWAP`, se corrige la fruta y se mantiene el estado.
-- Mandarina y pomelo cuentan como naranja, y papaya y durazno como mango, porque CLIP no los distingue bien. Por eso una mandarina real se acepta como naranja.
+- Mandarina y pomelo cuentan como naranja, y papaya y durazno como mango, porque CLIP no los distingue bien.
+- Revisa solo las 6 detecciones más grandes; el resto sigue lo que se decidió para su misma clase.
 
-En CPU tarda unos 120 ms por foto (340 ms como máximo en las pruebas).
+### Variables de entorno
 
-### Medir el modelo
+Todas están explicadas en [.env.example](.env.example).
 
-```bash
-python evaluate.py                       # modelo ../best.pt con la configuración por defecto
-python evaluate.py otro_modelo.pt        # otro modelo
-python evaluate.py --conf 0.4            # umbral general
-python evaluate.py --conf mango=0.6      # umbral de una fruta (se puede repetir)
-python evaluate.py --no-clip             # sin CLIP
-```
+| Variable | Por defecto | Para qué sirve |
+| --- | --- | --- |
+| `MODEL_PATH` | `../best.pt` | Modelo principal |
+| `MODEL_VERSION` | `v4` | Versión que informa `/model/info` |
+| `FALLBACK_MODEL_PATH` | `../best_v2.pt` | Modelo de respaldo. Con `none` se apaga |
+| `CONF_THRESHOLD` | `0.25` con CLIP, `0.5` sin CLIP | Confianza mínima para aceptar una fruta |
+| `CONF_BANANA`, `CONF_MANGO`, `CONF_NARANJA`, `CONF_TOMATE` | igual que `CONF_THRESHOLD` (mango `0.6` sin CLIP) | Umbral propio de cada fruta |
+| `DEFECT_CONF` | `0.25` | Confianza mínima de una zona dañada |
+| `MIN_AREA` | `0.01` | Superficie mínima de una fruta (1 % de la foto) |
+| `MIN_CLUSTER` | `0.05` | Si 3 o más frutas chicas juntas cubren este porcentaje, se conservan (racimos) |
+| `MAX_FILL` | `0.93` | Si la máscara llena más que esto de su recuadro, se descarta (paredes, cajas) |
+| `RED_SWAP` | `0.5` | Si una "naranja" tiene más que esta proporción de rojo, pasa a tomate |
+| `CLIP_VERIFY` | `1` | `0` apaga CLIP |
+| `CLIP_MARGIN` | `0.25` | Cuánto tiene que ganarle "otra cosa" a la fruta para descartarla |
+| `CLIP_SWAP` | `0.6` | Seguridad mínima de CLIP para corregir la fruta |
+| `CLIP_MAX_CROPS` | `6` | Recortes que revisa CLIP por foto |
+| `MAX_UPLOAD_MB` | `10` | Peso máximo de la foto |
+| `MAX_PIXELS` | `40000000` | Píxeles máximos de la foto |
+| `MAX_SIDE` | `1600` | Lado máximo con el que se analiza la foto |
+| `WARMUP` | `1` | Inferencia de prueba al arrancar |
+| `ALLOWED_ORIGINS` | `*` | CORS |
+| `FRONTEND_PORT`, `BACKEND_PORT` | `8080`, `8000` | Puertos de Docker Compose |
 
-Pasa todas las fotos de `backend/tests/imagenes` por el mismo `/predict` de la app y guarda la tabla en `backend/tests/resultados.md`. Compara fruta y estado, marca si aparecieron zonas dañadas en las fotos con manchas y cuenta cuántas detecciones descartó cada filtro (`confianza`, `area`, `forma`, `clip`).
-
-Los nombres de las fotos positivas empiezan con `fruta_estado_` (por ejemplo `naranja_sobrepasada_01.jpg`), y si llevan `manchas` se esperan zonas dañadas. Las fuentes y licencias están en `backend/tests/imagenes/FUENTES.md`.
-
-Endpoints:
-
-- `GET /health`: estado del servidor, tarea y clases del modelo.
-- `POST /predict`: recibe `multipart/form-data` con `file` (la imagen) y `lot_id` (opcional). Responde 422 si no detecta ninguna fruta y 400 si la imagen no sirve. Con `?debug=true` agrega las detecciones descartadas y el motivo.
-
-Respuesta de `/predict`:
-
-```json
-{
-  "id": "SCAN-1760000000000",
-  "lot_id": "LOTE-1234",
-  "fruit_type": "Banana",
-  "state": "MADURO",
-  "confidence": 0.93,
-  "imperfection_percentage": 3.2,
-  "imperfection_details": "2 zonas dañadas detectadas (3.2 % de la superficie)",
-  "shelf_life_days": "2 a 4 días",
-  "suggested_action": "Despacho inmediato a locales comerciales",
-  "caliber": "Calibre A (más de 20 cm)",
-  "estimated_weight": "Caja estándar 18 kg",
-  "detections": [
-    {
-      "kind": "fruta",
-      "label": "banana_madura",
-      "confidence": 0.93,
-      "box": [0.12, 0.2, 0.88, 0.8],
-      "polygon": [[0.12, 0.4], [0.3, 0.22], [0.5, 0.6]],
-      "polygons": [[[0.12, 0.4], [0.3, 0.22], [0.5, 0.6]]]
-    }
-  ],
-  "verification": {
-    "discarded": 1,
-    "discarded_by": { "clip": 1 },
-    "color_corrections": [],
-    "clip": { "enabled": true, "checked": 2, "ms": 95, "rejected": [], "corrections": [] }
-  }
-}
-```
-
-Las coordenadas de `box` (x1, y1, x2, y2), `polygon` y `polygons` van normalizadas entre 0 y 1 respecto de la imagen ya girada según el EXIF, que es la misma que muestra la app. `polygons` trae un contorno por cada parte de la máscara (las partes de menos del 5 % se descartan), simplificado a 80 puntos como máximo. `polygon` es la parte más grande y se mantiene para el historial viejo. La respuesta 422 también trae `verification`, para saber qué filtro descartó cada detección.
-
-### Conectar la app al backend
-
-1. Abre **Ajustes** (barra inferior en el celular, engranaje arriba a la derecha en escritorio).
-2. Deja **Modo demo** apagado y la dirección en `/api`.
-3. Toca **Probar conexión**: debe decir que el modelo cargó 13 clases.
-
-Si el backend no responde, la app muestra el error y no guarda ningún resultado.
-
-## Probar en el celular
-
-La cámara web necesita HTTPS. Una opción es un túnel de Cloudflare:
+### Tests y evaluación
 
 ```bash
-npx --yes cloudflared tunnel --url http://localhost:5173
+cd backend
+python -m pytest                       # 15 tests de la API
+python evaluate.py                     # las 4 variantes, tablas en docs/evaluacion.md y gráficos en docs/figuras/
+python evaluate.py --sin-variantes     # solo la configuración principal
+python evaluate.py otro_modelo.pt      # otro modelo
+python evaluate.py --conf mango=0.6    # cambiar un umbral (se puede repetir)
+python scripts/generar_muestras.py     # vuelve a generar las fotos de prueba y sus resultados guardados
 ```
 
-Abre el enlace `https://<nombre>.trycloudflare.com` en el celular. Como las fotos van a `/api` por el mismo túnel, no hace falta exponer el backend aparte.
-
-## Cómo se ve la app
-
-- **Celular**: barra superior con el estado de conexión y la cantidad de escaneos, y barra inferior con Escanear, Historial y Ajustes.
-- **Escritorio**: captura a la izquierda, resultado a la derecha (fijo al hacer scroll) y el historial abajo a lo ancho.
-- **Colores de estado**: verde lima para VERDE, dorado para MADURO y terracota para SOBREPASADO. Cada estado también lleva icono y texto.
-- **Etiqueta**: 80 mm, blanco y negro, una sola página. La impresión usa el bloque `@media print` de `src/index.css` y el elemento `#thermal-label-print-area`.
+Los nombres de las fotos con fruta empiezan con `fruta_estado_` (por ejemplo `naranja_sobrepasada_01.jpg`) y, si llevan `manchas`, se esperan zonas dañadas. Las fuentes y licencias están en `backend/tests/imagenes/FUENTES.md`.
 
 ## Estructura
 
 ```text
 .
-├── best.pt                    # Modelo YOLO11s-seg reentrenado
-├── best_v1.pt                 # Modelo anterior (YOLOv8n-seg), de respaldo
+├── best.pt                         # Modelo YOLO11s-seg (v4)
+├── best_v2.pt                      # Modelo de respaldo (v2)
+├── docker-compose.yml              # Backend y frontend
+├── Dockerfile                      # Frontend: compila con Node y sirve con Nginx
+├── nginx/default.conf.template     # Nginx: archivos de la app y proxy de /api al backend
+├── .env.example                    # Todas las variables, explicadas
 ├── backend/
-│   ├── main.py                # API FastAPI: /health y /predict
-│   ├── evaluate.py            # Mide el modelo con fotos con y sin fruta
-│   ├── sacred_fruit_reentrenamiento.ipynb  # Entrenamiento en Google Colab
-│   ├── tests/imagenes/        # Fotos de prueba (positivas y negativas) y FUENTES.md
-│   ├── tests/resultados.md    # Última tabla de evaluate.py
-│   └── requirements.txt
-├── public/                    # Favicon, icono sacred-apple y recursos PWA
-├── scripts/
-│   └── generate-icons.mjs     # Genera favicon.svg, favicon.png y sacred-apple*.png
-├── src/
-│   ├── components/            # Interfaz: captura, resultado, historial, etiqueta, ajustes
-│   ├── lib/                   # Estilos de estado y animaciones
-│   ├── services/
-│   │   ├── api.ts             # Llamada al backend y modo demo
-│   │   └── fruitRules.ts      # Reglas de calibre, peso, vida útil y recomendación
-│   ├── types/index.ts
-│   ├── App.tsx
-│   └── index.css              # Tema (paleta, tipografías) y estilos de impresión
-├── index.html
-└── vite.config.ts             # Vite y manifest de la PWA
+│   ├── Dockerfile                  # Python 3.11 slim, PyTorch CPU, CLIP incluido, usuario sin privilegios
+│   ├── app/
+│   │   ├── main.py                 # Crea la app, carga los modelos al arrancar
+│   │   ├── config.py               # Variables de entorno
+│   │   ├── models.py               # Carga de YOLO, respaldo y CLIP
+│   │   ├── engine.py               # Pipeline: detección, filtros, CLIP, respaldo y armado de la respuesta
+│   │   ├── clip_verifier.py        # Textos y verificación con CLIP
+│   │   ├── postprocess.py          # Polígonos, recortes y color
+│   │   ├── images.py               # Validación de la foto y avisos de calidad
+│   │   ├── rules.py                # Calibre, embalaje, vida útil y recomendación
+│   │   ├── labels.py               # Nombres de clases
+│   │   ├── schemas.py              # Modelos Pydantic de Swagger
+│   │   ├── errors.py               # Formato de los errores
+│   │   └── routers/                # /predict, /health y /model/info
+│   ├── tests/                      # Tests con pytest y fotos de prueba (imagenes/)
+│   ├── scripts/generar_muestras.py # Fotos de prueba de la app y sus resultados guardados
+│   ├── evaluate.py                 # Métricas y gráficos
+│   ├── requirements.txt            # Dependencias del servidor
+│   ├── requirements-dev.txt        # Más pytest, httpx y matplotlib
+│   └── sacred_fruit_reentrenamiento.ipynb
+├── docs/
+│   ├── evaluacion.md               # Última evaluación completa
+│   └── figuras/                    # Matrices de confusión, F1, variantes y latencia
+├── public/
+│   ├── muestras/                   # Fotos de prueba y muestras.json
+│   └── sacred-apple*.png, favicon* # Íconos de la PWA
+├── scripts/generate-icons.mjs      # Regenera los íconos de la PWA
+└── src/
+    ├── App.tsx                     # Fases del análisis y pestañas
+    ├── components/                 # Visor, máscaras, ficha, decisión, avisos, historial, sistema, etiqueta
+    ├── lib/                        # Estilos de estado y estado del servidor
+    ├── services/                   # API, preparación de la foto, historial y Excel
+    └── types/
 ```
 
-Para regenerar los iconos: `node scripts/generate-icons.mjs`.
+## Tecnologías y créditos
 
-## Tecnologías
-
-- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4, `vite-plugin-pwa`.
-- **Tipografías**: Fraunces (títulos), Figtree (texto) e IBM Plex Mono (lotes y cifras), desde Google Fonts.
-- **Iconos**: [Flaticon UIcons](https://www.flaticon.es/) (estilo regular redondeado).
-- **Exportación**: `xlsx` (SheetJS).
-- **Backend**: FastAPI, Ultralytics YOLO y OpenCLIP.
+- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS v4 y `vite-plugin-pwa`. Excel con `xlsx` (SheetJS).
+- **Backend**: FastAPI, Ultralytics YOLO, OpenCLIP y PyTorch para CPU.
+- **Tipografías**: Bricolage Grotesque, Atkinson Hyperlegible Next y Spline Sans Mono (SIL Open Font License), incluidas en la app con Fontsource, así que funcionan sin internet.
+- **Íconos**: [Uicons de Flaticon](https://www.flaticon.es/uicons), estilo bold rounded. La licencia pide atribución; está en el pie de la app y en la pestaña Sistema.
+- **Fotos de prueba**: Wikimedia Commons, con autor y licencia en `backend/tests/imagenes/FUENTES.md` y en la pestaña Sistema.
